@@ -1,7 +1,7 @@
 *-----------------------------------------------------------------------------
-* <Rating>-20</Rating>
+* <Rating>-30</Rating>
 *-----------------------------------------------------------------------------
-    SUBROUTINE IB.ATM.COMMON.LOAD.SB
+    SUBROUTINE SDR.ATM.COMMON.LOAD.SB
 
     $INCLUDE I_COMMON
     $INCLUDE I_EQUATE
@@ -12,14 +12,15 @@
 
     GOSUB INITIALISE
 
+    GOSUB LOAD.XSL
+
     GOSUB LOAD.VARIABLES
 
     RETURN
 
 LOAD.VARIABLES:
 
-    M.IB.PARAMETER.SB.ID = "SYSTEM"
-    CALL F.READ(FN.IB.PARAMETER.SB, M.IB.PARAMETER.SB.ID , R.IB.PARAMETER.SB, F.IB.PARAMETER.SB, "")
+    CALL F.READ(FN.IB.PARAMETER.SB, "SYSTEM", R.IB.PARAMETER.SB, F.IB.PARAMETER.SB, "")
     YR.MESSAGE.TYPE =TRIM( R.IB.PARAMETER.SB<IB.PARM.MESSAGE.TYPE> , "0", "L")
     YR.MESSAGE.CODE =TRIM( R.IB.PARAMETER.SB<IB.PARM.MESSAGE.CODE> , "0", "L")
     YR.MINI.STMT.NO = TRIM( R.IB.PARAMETER.SB<IB.PARM.NO.MINI.STMT.TRN>)
@@ -55,6 +56,17 @@ INITIALISE:
     F.IB.TAG.GRP.SB= ""
     CALL OPF(FN.IB.TAG.GRP.SB, F.IB.TAG.GRP.SB)
 
+    FN.IB.PARAMETER.SB = "F.IB.PARAMETER.SB"
+    F.IB.PARAMETER.SB = ""
+    CALL OPF(FN.IB.PARAMETER.SB, F.IB.PARAMETER.SB)
+
+    FN.IB.OPE.TYPES.SB = "F.IB.OPE.TYPES.SB"
+    F.IB.OPE.TYPES.SB=""
+    CALL OPF(FN.IB.OPE.TYPES.SB, F.IB.OPE.TYPES.SB)
+
+    FN.SB.SPARROW.ATM.TXN.NO = "F.SB.SPARROW.ATM.TXN.NO"
+    F.SB.SPARROW.ATM.TXN.NO = ""
+    CALL OPF(FN.SB.SPARROW.ATM.TXN.NO, F.SB.SPARROW.ATM.TXN.NO)
 
     FN.CARD.STATUS = "F.CARD.STATUS"
     F.CARD.STATUS = ""
@@ -72,52 +84,13 @@ INITIALISE:
     F.IB.MESSAGE.LAYOUT.SB = ""
     CALL OPF(FN.IB.MESSAGE.LAYOUT.SB, F.IB.MESSAGE.LAYOUT.SB)
 
+    FN.IB.ATM.MESSAGE.LOG.SB = "F.IB.ATM.MESSAGE.LOG.SB"
+    F.IB.ATM.MESSAGE.LOG.SB = ""
+    CALL OPF(FN.IB.ATM.MESSAGE.LOG.SB, F.IB.ATM.MESSAGE.LOG.SB)
+
     FN.ATM.CORR.MSG.SB = "F.ATM.CORR.MSG.SB"
     F.ATM.CORR.MSG.SB = ""
     CALL OPF(FN.ATM.CORR.MSG.SB, F.ATM.CORR.MSG.SB)
-
-    BEGIN CASE
-
-    CASE M.ATM.INTERFACE.SB.ID = "IB"
-
-        FN.IB.PARAMETER.SB = "F.IB.PARAMETER.SB"
-        F.IB.PARAMETER.SB = ""
-        CALL OPF(FN.IB.PARAMETER.SB, F.IB.PARAMETER.SB)
-
-        FN.IB.ATM.MESSAGE.LOG.SB = "F.IB.ATM.MESSAGE.LOG.SB"
-        F.IB.ATM.MESSAGE.LOG.SB = ""
-        CALL OPF(FN.IB.ATM.MESSAGE.LOG.SB, F.IB.ATM.MESSAGE.LOG.SB)
-
-        FN.IB.OPE.TYPES.SB = "F.IB.OPE.TYPES.SB"
-        F.IB.OPE.TYPES.SB=""
-        CALL OPF(FN.IB.OPE.TYPES.SB, F.IB.OPE.TYPES.SB)
-
-        FN.IB.ATM.POS.LINK.SB = "F.IB.ATM.POS.LINK.SB"
-        F.IB.ATM.POS.LINK.SB = ""
-        CALL OPF(FN.IB.ATM.POS.LINK.SB, F.IB.ATM.POS.LINK.SB)
-
-    CASE M.ATM.INTERFACE.SB.ID = "SDR"
-
-        FN.IB.PARAMETER.SB = "F.SDR.PARAMETER.SB"
-        F.IB.PARAMETER.SB = ""
-        CALL OPF(FN.IB.PARAMETER.SB, F.IB.PARAMETER.SB)
-
-        FN.IB.ATM.MESSAGE.LOG.SB = "F.SDR.ATM.MESSAGE.LOG.SB"
-        F.IB.ATM.MESSAGE.LOG.SB = ""
-        CALL OPF(FN.IB.ATM.MESSAGE.LOG.SB, F.IB.ATM.MESSAGE.LOG.SB)
-
-        FN.IB.OPE.TYPES.SB = "F.SDR.OPE.TYPES.SB"
-        F.IB.OPE.TYPES.SB=""
-        CALL OPF(FN.IB.OPE.TYPES.SB, F.IB.OPE.TYPES.SB)
-
-        FN.IB.ATM.POS.LINK.SB = "F.SDR.ATM.POS.LINK.SB"
-        F.IB.ATM.POS.LINK.SB = ""
-        CALL OPF(FN.IB.ATM.POS.LINK.SB, F.IB.ATM.POS.LINK.SB)
-
-    CASE OTHERWISE
-        NULL
-
-    END CASE
 
     MSG.DATA = ""
     RETURN.DATA = ""
@@ -131,6 +104,63 @@ INITIALISE:
     YR.APPILICATION = ""
     YR.START.VARIABLE.DATA = ""
     TRANS.KEY.ID = ""
+
+    RETURN
+
+LOAD.XSL:
+
+    XSLTOT24 =""
+    XSLTOT24 :='<?xml version="1.0" encoding="utf-8"?>'
+    XSLTOT24 :='<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+    XSLTOT24 :='<xsl:template match="/Message">'
+    XSLTOT24 :='<array>'
+    XSLTOT24 :='<xsl:for-each select="*">'
+    XSLTOT24 :='<data>'
+    XSLTOT24 :='<xsl:attribute name="attribute">'
+    XSLTOT24 :='<xsl:number level ="single"/>'
+    XSLTOT24 :='</xsl:attribute>'
+    XSLTOT24 :='<xsl:attribute name="value">1</xsl:attribute>'
+    XSLTOT24 :='<xsl:attribute name="subvalue">1</xsl:attribute>'
+    XSLTOT24 :='<xsl:for-each select="./Tag">'
+    XSLTOT24 :='<xsl:value-of select="."/>'
+    XSLTOT24 :='</xsl:for-each>'
+    XSLTOT24 :='</data>'
+    XSLTOT24 :='<data>'
+    XSLTOT24 :='<xsl:attribute name="attribute">'
+    XSLTOT24 :='<xsl:number level ="single"/>'
+    XSLTOT24 :='</xsl:attribute>'
+    XSLTOT24 :='<xsl:attribute name="value">2</xsl:attribute>'
+    XSLTOT24 :='<xsl:attribute name="subvalue">1</xsl:attribute>'
+    XSLTOT24 :='<xsl:for-each select="./Value">'
+    XSLTOT24 :='<xsl:value-of select="."/>'
+    XSLTOT24 :='</xsl:for-each>'
+    XSLTOT24 :='</data>'
+    XSLTOT24 :='</xsl:for-each>'
+    XSLTOT24 :='</array>'
+    XSLTOT24 :='</xsl:template>'
+    XSLTOT24 :='</xsl:stylesheet>'
+
+    XSLT24 = ""
+    XSLT24 :='<?xml version="1.0" encoding="utf-8"?>'
+    XSLT24 :='<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+    XSLT24 :='<xsl:output omit-xml-declaration="yes"/>'
+    XSLT24 :='<xsl:template match="/array">'
+    XSLT24 :='<Message>'
+    XSLT24 :='<xsl:for-each select="data">'
+    XSLT24 :='<xsl:if test="@value=1">'
+    XSLT24 :='<Field>'
+    XSLT24 :='<Tag>'
+    XSLT24 :='<xsl:value-of select="current()" />'
+    XSLT24 :='</Tag>'
+    XSLT24 :='<Value>'
+    XSLT24 :='<xsl:value-of select="../node()[ @attribute=current()/@attribute and @value=' :  "'2']" : '" />'
+    XSLT24 :='</Value>'
+    XSLT24 := '</Field>'
+    XSLT24 :='</xsl:if>'
+    XSLT24 :='</xsl:for-each>'
+    XSLT24 :='</Message>'
+    XSLT24 :='</xsl:template>'
+    XSLT24 :='</xsl:stylesheet>'
 
     RETURN
 

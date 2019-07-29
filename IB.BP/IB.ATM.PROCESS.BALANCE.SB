@@ -1,3 +1,6 @@
+*-----------------------------------------------------------------------------
+* <Rating>762</Rating>
+*-----------------------------------------------------------------------------
     SUBROUTINE IB.ATM.PROCESS.BALANCE.SB
 
     $INCLUDE I_COMMON
@@ -19,7 +22,9 @@
 
     RETURN
 
+*-------
 PROCESS:
+*-------
 
     YMSG = "PARAMETER Y.SEND.ZERO.BAL=" : Y.SEND.ZERO.BAL : " JUST.GET.BALANCE=" : JUST.GET.BALANCE
     GOSUB LOG.ERROR

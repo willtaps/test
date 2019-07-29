@@ -1,7 +1,7 @@
 *-----------------------------------------------------------------------------
 * <Rating>84</Rating>
 *-----------------------------------------------------------------------------
-    PROGRAM TEST.IB.MSG
+    PROGRAM TEST.SDR.MSG
 
     $INCLUDE I_COMMON
     $INCLUDE I_EQUATE
@@ -10,7 +10,7 @@
 
     TTYPE = "ANSI-COLOUR"
 
-    CALL SB.INIT.CONN("IBATM.TEXT")
+    CALL SB.INIT.CONN("SDRATM.TEXT")
 
     CALL LOAD.COMPANY("MZ0010101")
 

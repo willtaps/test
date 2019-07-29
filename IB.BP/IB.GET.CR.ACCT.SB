@@ -1,3 +1,6 @@
+*-----------------------------------------------------------------------------
+* <Rating>753</Rating>
+*-----------------------------------------------------------------------------
     SUBROUTINE IB.GET.CR.ACCT.SB( YACC.NO, YR.USER.INFO )
 
     $INCLUDE I_COMMON
@@ -24,8 +27,6 @@
     YMSG = "IN.MSG.TYPE =" : IN.MSG.TYPE
     R.IB.ATM.POS.LINK.SB = ""
     NEW.USER.NUMBER = 1
-***Changed D. Nyapfungwe
-**To use only first account
 
     GOSUB GET.AND.READ.POS.LINK.SB
     BEGIN CASE
@@ -65,11 +66,6 @@
 
     CASE YR.MESSAGE.EVENT = "INT.BANK.TRF.BEN"
         IF ATM.POS[1,3] = "ATM" THEN
-*Alterado por Mauro Mauane
-*Segregacao das contas de Transferencias
-*Transferencia  SB para SB
-*1o Passo(Debita Suspensa e Credita Beneficiario )
-
             NIB.ORIGEM = ""
             TAG.NIB.ORIGEM="477"
             LOCATE TAG.NIB.ORIGEM IN MSG.DATA<MSG.TAG.ID,1> SETTING POS THEN
@@ -79,10 +75,6 @@
             IF NIB.ID[1,4] = OWN.BANK.ID AND NIB.ORIGEM[1,4]= OWN.BANK.ID THEN
                 YACC.NO = R.IB.ATM.POS.LINK.SB<IB.LINK.TRF.SUS.ACCT, 1>
             END ELSE
-
-*Transferencia Emitidas
-*OIC para SB (Debita Suspensa e Credita Beneficiario)
-
                 YACC.NO = R.IB.ATM.POS.LINK.SB<IB.LINK.TRF.SUS.ACCT, 2>
             END
         END
@@ -189,7 +181,7 @@ GET.AND.READ.POS.LINK.SB:
         M.LINK.ID = PART1 : "." :YTERM.ID : "." : ATM.POS :  "." : IN.MESSAGE.CODE
     END
 
-    GOSUB READ.IB.ATM.POS.LINK.SB.FILE
+    GOSUB READ.IB.ATM.POS.LINK.SB
 
     RETURN
 
@@ -470,7 +462,9 @@ SET.ERMB.SUMM.ACCTS:
 
     RETURN
 
-READ.IB.ATM.POS.LINK.SB.FILE:
+*----------------------------
+READ.IB.ATM.POS.LINK.SB:
+*----------------------------
 
     PART1 = M.LINK.ID[".",1,1]
     PART2 = M.LINK.ID[".",2,1]
@@ -478,34 +472,36 @@ READ.IB.ATM.POS.LINK.SB.FILE:
     PART4 = M.LINK.ID[".",4,1]
 
     IDS.CHECKED = M.LINK.ID
+    M.IB.ATM.POS.LINK.SB.ID = M.LINK.ID
 
-    YMSG = " M.LINK.ID=" :  M.LINK.ID
+    YMSG = " M.IB.ATM.POS.LINK.SB.ID=" :  M.IB.ATM.POS.LINK.SB.ID
     GOSUB LOG.ERROR
 
     R.IB.ATM.POS.LINK.SB = ""
+    GOSUB READ.IB.ATM.POS.LINK.SB.FILE
 
-    CALL CACHE.READ("F.IB.ATM.POS.LINK.SB", M.LINK.ID, R.IB.ATM.POS.LINK.SB, YERR)
-    IF YERR <> "" THEN
-        M.LINK.ID = PART1:".": PART2 : "." : PART3
-        YMSG = " M.LINK.ID=" :  M.LINK.ID
+    IF R.IB.ATM.POS.LINK.SB = "" THEN
+        M.IB.ATM.POS.LINK.SB.ID = PART1:".": PART2 : "." : PART3
+        YMSG = " M.IB.ATM.POS.LINK.SB.ID=" :  M.IB.ATM.POS.LINK.SB.ID
         GOSUB LOG.ERROR
-        IDS.CHECKED := " - " : M.LINK.ID
-        CALL CACHE.READ("F.IB.ATM.POS.LINK.SB", M.LINK.ID, R.IB.ATM.POS.LINK.SB, YERR)
-    END
-    IF YERR <> "" THEN
-        M.LINK.ID = PART1:".": PART2
-        YMSG = " M.LINK.ID=" :  M.LINK.ID
-        GOSUB LOG.ERROR
-        IDS.CHECKED := " - " : M.LINK.ID
-        CALL CACHE.READ("F.IB.ATM.POS.LINK.SB", M.LINK.ID, R.IB.ATM.POS.LINK.SB, YERR)
+        IDS.CHECKED := " - " : M.IB.ATM.POS.LINK.SB.ID
+        GOSUB READ.IB.ATM.POS.LINK.SB.FILE
     END
 
-    IF YERR <> "" THEN
-        M.LINK.ID = PART1:".": ATM.POS
-        YMSG = " M.LINK.ID=" :  M.LINK.ID
+    IF R.IB.ATM.POS.LINK.SB = "" THEN
+        M.IB.ATM.POS.LINK.SB.ID = PART1:".": PART2
+        YMSG = " M.IB.ATM.POS.LINK.SB.ID=" :  M.IB.ATM.POS.LINK.SB.ID
         GOSUB LOG.ERROR
-        IDS.CHECKED := " - " : M.LINK.ID
-        CALL CACHE.READ("F.IB.ATM.POS.LINK.SB", M.LINK.ID, R.IB.ATM.POS.LINK.SB, YERR)
+        IDS.CHECKED := " - " : M.IB.ATM.POS.LINK.SB.ID
+        GOSUB READ.IB.ATM.POS.LINK.SB.FILE
+    END
+
+    IF R.IB.ATM.POS.LINK.SB = "" THEN
+        M.IB.ATM.POS.LINK.SB.ID = PART1:".": ATM.POS
+        YMSG = " M.IB.ATM.POS.LINK.SB.ID=" :  M.IB.ATM.POS.LINK.SB.ID
+        GOSUB LOG.ERROR
+        IDS.CHECKED := " - " : M.IB.ATM.POS.LINK.SB.ID
+        GOSUB READ.IB.ATM.POS.LINK.SB.FILE
     END
 
     IF YERR AND (PART1 = "0000" OR PART1 EQ OWN.BANK.ID ) THEN
@@ -515,10 +511,11 @@ READ.IB.ATM.POS.LINK.SB.FILE:
             END ELSE
                 M.LINK.ID = PART1:".POS"
             END
-            YMSG = " M.LINK.ID=" :  M.LINK.ID
+            M.IB.ATM.POS.LINK.SB.ID = M.LINK.ID
+            YMSG = " M.IB.ATM.POS.LINK.SB.ID=" :  M.IB.ATM.POS.LINK.SB.ID
             GOSUB LOG.ERROR
-            IDS.CHECKED := " - " : M.LINK.ID
-            CALL CACHE.READ("F.IB.ATM.POS.LINK.SB", M.LINK.ID, R.IB.ATM.POS.LINK.SB, YERR)
+            IDS.CHECKED := " - " : M.IB.ATM.POS.LINK.SB.ID
+            GOSUB READ.IB.ATM.POS.LINK.SB.FILE
         END
     END
 
@@ -529,7 +526,9 @@ READ.IB.ATM.POS.LINK.SB.FILE:
 
     RETURN
 
+*---------
 LOG.ERROR:
+*---------
 
     IF ETEXT THEN
         IB.LOG.LEVEL = "ERROR"
@@ -542,6 +541,16 @@ LOG.ERROR:
     ETEXT = ""
 
     IB.LOG.LEVEL = "DEBUG"
+
+    RETURN
+
+*----------------------------
+READ.IB.ATM.POS.LINK.SB.FILE:
+*----------------------------
+
+    YERR = ""
+    R.IB.ATM.POS.LINK.SB = ""
+    CALL F.READ(FN.IB.ATM.POS.LINK.SB, M.IB.ATM.POS.LINK.SB.ID, R.IB.ATM.POS.LINK.SB, F.IB.ATM.POS.LINK.SB, YERR)
 
     RETURN
 

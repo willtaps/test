@@ -1,3 +1,6 @@
+*-----------------------------------------------------------------------------
+* <Rating>-10</Rating>
+*-----------------------------------------------------------------------------
     SUBROUTINE IB.PROCESS.ACCT.BAL.SB
 
     $INCLUDE I_COMMON
@@ -22,7 +25,9 @@
 
     RETURN
 
+*---------
 LOG.ERROR:
+*---------
 
     IF ETEXT THEN
         IB.LOG.LEVEL = "ERROR"
@@ -32,6 +37,7 @@ LOG.ERROR:
     CALL IB.ATM.LOG.ERROR( SYSTEM(40) )
     ETEXT = ""
     IB.LOG.LEVEL = "DEBUG"
+
     RETURN
 
 END

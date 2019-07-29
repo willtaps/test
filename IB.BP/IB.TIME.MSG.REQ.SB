@@ -1,0 +1,44 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    PROGRAM IB.TIME.MSG.REQ.SB
+
+$INSERT ../T24_BP I_COMMON
+$INSERT ../T24_BP I_EQUATE
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+
+    PHNO = 1
+
+    TTYPE = "ANSI-COLOUR"
+
+    OFS$SOURCE.ID = "GENERIC.OFS.PROCESS"
+
+    OPEN "","BSTM.DAT" TO F.DATA THEN
+
+        READ YMSG FROM F.DATA,"MESSAGE" THEN
+            YMSG = YMSG : "|1"
+            Y1 = TIME()
+
+            CALL IB.ATM.MSG.TEXT.IN(YMSG)
+
+            Y2 = TIME()
+            DEBUG
+            CALL OFS.GLOBUS.MANAGER(OFS$SOURCE.ID, YMSG)
+
+            Y3 = TIME()
+
+            CALL IB.ATM.MSG.OUT ( YMSG)
+
+            Y4 = TIME()
+
+            CRT "TIME IN IB.ATM.MSG.IN : " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+            CRT "TIME IN IB.ATM.MSG.OUT: " : OCONV(ICONV(Y4-Y3,"MTS"),"MTS")
+            CRT "TIME IN OFS           : " : OCONV(ICONV(Y3-Y2,"MTS"),"MTS")
+
+            CRT "RESPONSE :" : YMSG
+        END
+    END
+
+    STOP
+
+END

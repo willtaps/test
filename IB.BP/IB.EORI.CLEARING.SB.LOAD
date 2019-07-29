@@ -1,0 +1,22 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.EORI.CLEARING.SB.LOAD
+
+$INSERT ../T24_BP I_COMMON
+$INSERT ../T24_BP I_EQUATE
+$INSERT ../T24_BP I_GTS.COMMON
+$INSERT ../T24_BP I_TSA.COMMON
+$INSERT ../T24_BP I_F.TSA.STATUS
+$INSERT ../T24_BP I_BATCH.FILES
+$INSERT ../T24_BP I_F.TSA.SERVICE
+$INSERT ../T24_BP I_F.USER
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INCLUDE IB.BP I_IB.ATM.CLEARING.COMMON
+    $INCLUDE IB.BP I_IB.TAG.SB.COMMON
+
+    CALL IB.CLEARING.MT.SB.LOAD
+
+    RETURN
+
+END

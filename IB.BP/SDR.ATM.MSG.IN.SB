@@ -1,0 +1,119 @@
+*-----------------------------------------------------------------------------
+* <Rating>60</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SDR.ATM.MSG.IN.SB( INMSG )
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.INTERCO.PARAMETER
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.USER
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INCLUDE IB.BP I_IB.TAG.SB.COMMON
+    $INCLUDE IB.BP I_F.IB.MSG.GRP.SB
+    $INCLUDE OFS.BP I_F.OFS.USER.SB
+    $INCLUDE IB.BP I_F.IB.OFS.USER.SB
+    $INCLUDE IB.BP I_F.ATM.MAPPING.SB
+
+    M.CONTINUE = 1
+
+    CALL IB.RESET.COMMON.SB
+
+    M.ATM.INTERFACE.SB.ID = "SDR"
+
+    GOSUB CHECK.EOD.TRIGGER
+
+    IF M.CONTINUE THEN
+        CALL IB.ATM.COMMON.LOAD.SB
+        CALL IB.ATM.MSG.TEXT.IN ( INMSG )
+    END
+
+    RETURN
+
+*-----------------
+CHECK.EOD.TRIGGER:
+*-----------------
+
+    IF INMSG[1,10] = "BIZRTCLEAN" THEN
+        FN.LOCKING = "F.LOCKING":FM : "NO.FATAL.ERROR"
+        F.LOCKING = ""
+        CALL OPF(FN.LOCKING, F.LOCKING)
+
+        IF FN.LOCKING THEN
+            WRITE INMSG TO F.LOCKING, "IB.ATM" ON ERROR NULL
+        END
+        GOSUB SET.BYPASS.ENQ
+        M.CONTINUE = 0
+    END
+
+    RETURN
+
+*-------------
+GET.USER.INFO:
+*-------------
+
+    USER.NUMBER = 1
+    USER.INFO = ""
+    READ R.IB.OFS.USER.SB FROM F.IB.OFS.USER.SB, USER.NUMBER THEN
+        OFS.USER.ID = R.IB.OFS.USER.SB<  IB.EVE.USER.ID >
+
+        FN.OFS.USER.SB = "F.OFS.USER.SB"
+        F.OFS.USER.SB = ""
+        CALL OPF(FN.OFS.USER.SB, F.OFS.USER.SB)
+
+        FV.USER = ""
+        CALL OPF("F.USER", FV.USER)
+
+        READ RV.USER FROM FV.USER,OFS.USER.ID THEN
+
+            USER.SON = RV.USER< EB.USE.SIGN.ON.NAME >
+
+            READ R.OFS.USER.SB FROM F.OFS.USER.SB, OFS.USER.ID ELSE NULL
+
+            PWORD = R.OFS.USER.SB<SB.OFS.PASSWORD>
+            IF R.OFS.USER.SB<SB.OFS.PASSWORD+1> THEN
+                PWORD := FM :  R.OFS.USER.SB<SB.OFS.PASSWORD+1>
+            END
+
+            IF PWORD THEN
+                CALL OFS.USER.ENCR.DECR.SB ( PWORD, "DE")
+            END
+            USER.INFO<1> = USER.SON
+            USER.INFO<2> = PWORD
+        END
+    END
+
+    RETURN
+
+*--------------
+SET.BYPASS.ENQ:
+*--------------
+
+    GOSUB GET.USER.INFO
+
+    OFS.REQ = "ENQUIRY.SELECT,," : USER.INFO<1> : "/" : USER.INFO<2> : "/MZ0010101,ATM.BYPASS.SB"
+    YMSG = OFS.REQ
+    GOSUB LOG.ERROR
+    INMSG = OFS.REQ
+
+    RETURN
+
+*---------
+LOG.ERROR:
+*---------
+
+    IF ETEXT THEN
+        IB.LOG.LEVEL = "ERROR"
+    END ELSE
+        ETEXT = YMSG
+    END
+
+    CALL IB.ATM.LOG.ERROR( G$THIS )
+
+    ETEXT = ""
+
+    IB.LOG.LEVEL = "DEBUG"
+
+    RETURN
+
+END

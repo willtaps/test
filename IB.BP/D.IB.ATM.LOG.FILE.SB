@@ -1,0 +1,21 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE D.IB.ATM.LOG.FILE.SB (Reserved, YR.KEY, YR.PART.NO)
+
+    IF INDEX(YR.KEY,".",1) THEN
+        YR.PART.NO = YR.KEY[8,1]
+    END ELSE
+        YR.PART.NO = YR.KEY[4,1]
+    END
+
+    YR.PART.NO += 1
+    YR.PART.NO *= 1
+
+    IF NOT(ISDIGIT(YR.PART.NO)) THEN
+        YR.PART.NO = 1
+    END
+
+    RETURN
+
+END

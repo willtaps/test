@@ -1,0 +1,97 @@
+*-----------------------------------------------------------------------------
+* <Rating>-10</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SDR.PARAMETER.SB.FIELDS
+*-----------------------------------------------------------------------------
+*<doc>
+* Template for field definitions routine YOURAPPLICATION.FIELDS
+*
+* @author willard.matsaudza@gmail.com
+* @stereotype fields template
+* @uses Table
+* @public Table Creation
+* @package infra.eb
+* </doc>
+*-----------------------------------------------------------------------------
+* Modification History :
+*
+* 19/10/07 - EN_10003543
+*            New Template changes
+*
+* 14/11/07 - BG_100015736
+*            Exclude routines that are not released
+*-----------------------------------------------------------------------------
+*** <region name= Header>
+*** <desc>Inserts and control logic</desc>
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_DataTypes
+*** </region>
+*-----------------------------------------------------------------------------
+    CALL Table.defineId("SDR.PARM.ID", T24_String) ;* Define Table id
+*-----------------------------------------------------------------------------
+    CALL Table.addField("MESSAGE.TYPE", T24_String, "", "")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("MESSAGE.CODE", T24_String, "", "")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("NO.MINI.STMT.TRN", T24_String, "", "")
+    CALL Table.addField("XX.MSG.KEY", T24_String, "", "")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("OWN.BANK.CODE", T24_String, "", "")
+    CALL Field.setCheckFile("IB.BANK.CODES.SB")
+    CALL Table.addField("XX.REV.MSG.KEY", T24_String, "", "")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("XX.CARD.NUMBER", T24_String, "", "")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("BAL.ACCT.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("BAL.CARD.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("BAL.OTHER.ACCT.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("XX.BAL.VAR.DATA.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("NO.OF.STMT.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("FRG.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("DR.AMT.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("XX.NAB.ID.TAGS", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("BILL.PAY.ID.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("TERMINAL.ID.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("BANK.ID.CODE.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("TERM.TYPE.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("NIB.ACCT.TAG", T24_String,"","")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addOptionsField("XML.RESPONSE","YES_NO", "", "")
+    CALL Table.addOptionsField("DEBUG","YES_NO", "", "")
+    CALL Table.addField("BILL.PAY.DEF.ACCT", T24_String,"","")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("XX.STAFF.CAT.CODES", T24_String,"","")
+    CALL Field.setCheckFile("CATEGORY")
+    CALL Table.addField("XX.CARD.TYPES",T24_String,"","")
+    CALL Field.setCheckFile("CARD.TYPE")
+    CALL Table.addField("NO.LOG.DAYS", T24_Numeric, Field_Mandatory,"")
+    CALL Table.addField("CASH.DEP.CAT", T24_String,"","")
+    CALL Field.setCheckFile("CATEGORY")
+    CALL Table.addReservedField('RESERVED.4')
+    CALL Table.addReservedField('RESERVED.3')
+    CALL Table.addReservedField('RESERVED.2')
+    CALL Table.addReservedField('RESERVED.1')
+
+*   CALL Field.setCheckFile(fileName)        ;* Use DEFAULT.ENRICH from SS or just field 1
+*    CALL Table.addFieldDefinition(fieldName, fieldLength, fieldType, neighbour) ;* Add a new field
+*    CALL Table.addFieldWithEbLookup(fieldName,virtualTableName,neighbour) ;* Specify Lookup values
+*    CALL Field.setDefault(defaultValue) ;* Assign default value
+*-----------------------------------------------------------------------------
+    CALL Table.setAuditPosition         ;* Poputale audit information
+*-----------------------------------------------------------------------------
+    RETURN
+*-----------------------------------------------------------------------------
+END

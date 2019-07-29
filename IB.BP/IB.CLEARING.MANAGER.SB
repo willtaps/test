@@ -1,0 +1,247 @@
+*-----------------------------------------------------------------------------
+* <Rating>470</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.CLEARING.MANAGER.SB
+
+    $INSERT ../T24_BP I_COMMON
+    $INSERT ../T24_BP I_EQUATE
+    $INSERT ../T24_BP I_GTS.COMMON
+    $INSERT ../T24_BP I_TSA.COMMON
+    $INSERT ../T24_BP I_F.TSA.STATUS
+    $INSERT ../T24_BP I_BATCH.FILES
+    $INSERT ../T24_BP I_F.TSA.SERVICE
+    $INSERT ../T24_BP I_F.USER
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INCLUDE IB.BP I_IB.ATM.CLEARING.COMMON
+    $INCLUDE IB.BP I_F.IB.FILE.PARAMETER.SB
+    $INCLUDE IB.BP I_F.IB.MESSAGE.TAG.SB
+    $INCLUDE IB.BP I_F.IB.FILE.TAGS.SB
+
+    YR.COMO.START = 0
+
+    GOSUB INITIALISE
+
+    LOOP
+    UNTIL ABORT.PROCESS
+        GOSUB PROCESS
+        GOSUB CHECK.FOR.STOP
+    REPEAT
+
+    RETURN
+
+*-------
+PROCESS:
+*-------
+
+    YR.ALL.FOUND = 0
+    YR.FOUND.FILES = ""
+    YR.CLEARING.FILE = ""
+    YR.FILE.LIST = ""
+    CMD = "SSELECT " : IN.VOC.NAME
+    EXEC CMD
+    LOOP
+        READNEXT YR.FILE.ID ELSE YR.FILE.ID = ""
+    WHILE YR.FILE.ID DO
+        YR.FILE.PATH = IN.FILE.PATH : "/" : YR.FILE.ID
+        GOSUB CHECK.IF.TRANSFER.COMPLETE
+        IF YCOMPLETE THEN
+            CMD = "SH -c 'head -n 1 " : YR.FILE.PATH
+            EXEC CMD CAPTURING YLINE
+            GOSUB MAP.HEADER
+            LOCATE "102" IN YR.MESSAGE.ARRAY<1,1> SETTING POS THEN
+                YR.CLEARING.FILE = YR.MESSAGE.ARRAY<2,POS>
+                LOCATE YR.CLEARING.FILE IN YR.CLEARING.FILES SETTING FILE.POS THEN
+                    LOCATE "061" IN YR.MESSAGE.ARRAY<1,1> SETTING POS THEN
+                        YR.JUL.DATE = YR.MESSAGE.ARRAY<2,POS>
+                        YR.KEY = YR.CLEARING.FILE : "." : YR.JUL.DATE
+                        LOCATE YR.JUL.DATE IN YR.FOUND.FILES<1,1> SETTING POS ELSE
+                            YR.FOUND.FILES<1,POS> = YR.JUL.DATE
+                        END
+                        YR.FOUND.FILES<2,POS> += 1
+                        YR.FILE.LIST<FILE.POS> = YR.FILE.ID
+                        IF YR.FOUND.FILES<2,POS> = NO.FILES THEN
+                            YR.ALL.FOUND = 1
+                            WRITE YR.JUL.DATE TO F.LOCKING, "IB.CLEARING.JULDATE.SB"
+                        END
+                    END
+                END
+            END
+        END
+    REPEAT
+
+    IF YR.ALL.FOUND THEN
+        GOSUB START.SERVICES
+    END
+
+    RETURN
+
+*--------------
+CHECK.FOR.STOP:
+*--------------
+
+    Y1 = ICONV(TIME(), "MTS")
+
+    READ R.TSA FROM F.TSA.SERVICE, PROCESS.NAME THEN
+        IF R.TSA<TS.TSM.SERVICE.CONTROL> EQ "STOP" THEN
+            CALL OCOMO("TSA.SERVICE - ":PROCESS.NAME:" set to STOP")
+            ABORT.PROCESS = 1
+        END ELSE
+            LOCATE "SLEEP" IN R.TSA<TS.TSM.ATTRIBUTE.TYPE,1> SETTING POS THEN
+                YSLEEP.TIME = R.TSA<TS.TSM.ATTRIBUTE.VALUE,POS>
+            END
+            Y2 = ICONV(TIME(), "MTS")
+            TIME.DIFF = Y2 -Y1
+            CALL OCOMO( "SLEEPING FOR " : YSLEEP.TIME)
+            LOOP
+            WHILE TIME.DIFF < YSLEEP.TIME DO
+                READ R.TSA FROM F.TSA.SERVICE, PROCESS.NAME THEN
+                    IF R.TSA<TS.TSM.SERVICE.CONTROL> EQ "STOP" THEN
+                        TIME.DIFF = YSLEEP.TIME + 1
+                        ABORT.PROCESS = 1
+                    END ELSE
+                        CALL SERVICE.HEARTBEAT
+                        SLEEP 30
+                        Y2 = ICONV(TIME(), "MTS")
+                        TIME.DIFF = Y2 -Y1
+                    END
+                END
+            REPEAT
+        END
+    END ELSE
+        ABORT.PROCESS = 1
+    END
+
+    RETURN
+
+*--------------
+START.SERVICES:
+*--------------
+
+    M.TSA.SERVICE.ID = "BNK/IB.PRE.CLEARING.SB"
+    GOSUB START.TSA
+
+    YR.SERVICE.LIST = RAISE(R.IB.FILE.PARAMETER.SB<IB.FILE.PARM.CLEARING.BATCH>)
+    FOR X = 1 TO NO.FILES
+        YR.FILE.PATH = YR.FILE.LIST<X>
+        CALL IB.SPLIT.FILES.SB ( YR.FILE.PATH )
+        M.TSA.SERVICE.ID = YR.SERVICE.LIST<X>
+        YR.FILE.TYPE = YR.CLEARING.FILES<X>
+        GOSUB START.TSA
+    NEXT X
+
+    RETURN
+
+*---------
+START.TSA:
+*---------
+
+    CALL OCOMO("Starting Service " : M.TSA.SERVICE.ID)
+    YR.STARTED = 0
+    YR.TSA.COMPLETE = 0
+
+    READ R.TSA FROM F.TSA.SERVICE, M.TSA.SERVICE.ID THEN
+        R.TSA<TS.TSM.SERVICE.CONTROL> = "START"
+        WRITE R.TSA TO F.TSA.SERVICE, M.TSA.SERVICE.ID
+    END
+    LOOP
+    WHILE NOT(YR.TSA.COMPLETE)
+        READ R.TSA FROM F.TSA.SERVICE, M.TSA.SERVICE.ID THEN
+            IF R.TSA<TS.TSM.SERVICE.CONTROL> = "STOP" THEN
+                SEL.CMD = "SELECT " : FN.IB.CLEARING.CONTROL.SB : " WITH @ID EQ " : YR.FILE.TYPE : "] AND STATUS EQ [0]"
+                EXEC SEL.CMD
+
+                IF @SELECTED THEN
+                    R.TSA<TS.TSM.SERVICE.CONTROL> = "START"
+                    WRITE R.TSA TO F.TSA.SERVICE, M.TSA.SERVICE.ID
+                    CALL OCOMO( "Records found with status eq 0, will restart service" )
+                    SLEEP 10
+                END ELSE
+                    CALL OCOMO("Service complete" )
+                    YR.TSA.COMPLETE = 1
+                END
+            END
+        END
+    REPEAT
+
+    RETURN
+
+*----------
+INITIALISE:
+*----------
+
+    CALL IB.CLEARING.MT.SB.LOAD
+
+    YR.CLEARING.FILES = RAISE(R.IB.FILE.PARAMETER.SB<IB.FILE.PARM.CLEARING.FILE>)
+    NO.FILES = DCOUNT(YR.CLEARING.FILES, FM)
+
+    IN.VOC.NAME = R.IB.FILE.PARAMETER.SB<IB.FILE.PARM.IN.FILE.VOC>
+
+    FN.LOCKING = "F.LOCKING"
+    F.LOCKING = ""
+    CALL OPF(FN.LOCKING, F.LOCKING)
+
+    RETURN
+
+*----------
+MAP.HEADER:
+*----------
+
+    M.IB.FILE.TAGS.SB.ID = "HEADER"
+
+    CALL F.READ(FN.IB.FILE.TAGS.SB, M.IB.FILE.TAGS.SB.ID, R.IB.FILE.TAGS.SB, F.IB.FILE.TAGS.SB, "")
+
+    YR.TERM = ""
+    YR.CODE.TXN = ""
+*
+    YR.POS =1
+    YR.MESSAGE.ARRAY = ""
+    FILE.POS = 1
+    NO.TAGS = DCOUNT(R.IB.FILE.TAGS.SB<IB.FL.TAGS.TAG.NO>, VM )
+    FOR NN = 1 TO  NO.TAGS
+        M.IB.MESSAGE.TAG.SB.ID = R.IB.FILE.TAGS.SB<IB.FL.TAGS.TAG.NO,NN>
+        GOSUB READ.IB.MESSAGE.TAG.SB.FILE
+        YTAG.LENTH = R.IB.MESSAGE.TAG.SB<IB.MSG.TAG.LENGHT>
+        YVALUE = YLINE[FILE.POS,YTAG.LENTH]
+        FILE.POS += YTAG.LENTH
+*
+        YR.MESSAGE.ARRAY<1, YR.POS> =  M.IB.MESSAGE.TAG.SB.ID
+        YR.MESSAGE.ARRAY<2,YR.POS> = YVALUE
+        YR.POS += 1
+    NEXT NN
+*
+    RETURN
+
+*-------------------------
+CHECK.IF.TRANSFER.COMPLETE:
+*-------------------------
+
+    CALL OCOMO( "CHECKING FILE " : YR.FILE.PATH )
+    CMD = 'cksum ' : YR.FILE.PATH
+    YCOMPLETE = 0
+    LAST.SIZE = 0
+    CNT = 0
+    FOR X = 1 TO 60
+        EXEC CMD CAPTURING MSG
+        YSIZE = MSG[" ",1,1]
+        IF LAST.SIZE = YSIZE THEN
+            CNT += 1
+        END  ELSE
+            CNT = 0
+        END
+        IF CNT > 5 THEN
+            YCOMPLETE = 1
+            EXIT
+        END
+        LAST.SIZE = YSIZE
+        SLEEP 1
+        CALL OCOMO( CNT : " " : LAST.SIZE :  " " : YSIZE )
+    NEXT X
+
+    RETURN
+
+READ.IB.MESSAGE.TAG.SB.FILE:
+
+    CALL F.READ(FN.IB.MESSAGE.TAG.SB, M.IB.MESSAGE.TAG.SB.ID, R.IB.MESSAGE.TAG.SB, F.IB.MESSAGE.TAG.SB, YERR)
+    RETURN
+
+END

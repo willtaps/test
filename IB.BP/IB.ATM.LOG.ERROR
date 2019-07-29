@@ -1,9 +1,13 @@
+*-----------------------------------------------------------------------------
+* <Rating>60</Rating>
+*-----------------------------------------------------------------------------
     SUBROUTINE IB.ATM.LOG.ERROR( G$THIS )
 
     $INCLUDE I_COMMON
     $INCLUDE I_EQUATE
-    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
-    $INCLUDE IB.BP I_F.IB.PARAMETER.SB
+    $INCLUDE I_IB.ATM.MSG.COMMON
+    $INCLUDE I_F.IB.PARAMETER.SB
+
     $INCLUDE JBC.h
 
     GOSUB INITIALISE
@@ -12,42 +16,79 @@
 
     RETURN
 
+*-------
 PROCESS:
-
-    IF NOT(M.CONTINUE) THEN RETURN
+*-------
 
     CONVERT FM TO "^" IN ETEXT
     CONVERT VM TO "~" IN ETEXT
     CONVERT SM TO "@" IN ETEXT
 
-    YMSG = FMT(YPID,"10L"):FMT(G$THIS,"40L") : " " : ETEXT
-    CMD = 'iblogger.sh ' : IB.LOG.LEVEL :' ../bnk.data/ib/logs IB "' :YMSG:'"'
-    GOSUB SHELL.EXEC:
-
-    RETURN
-
-INITIALISE:
-
-    YPORT.ID = SYSTEM(101)
-    YPID = JBASEGetPidFromPort(YPORT.ID)
-
-    M.CONTINUE = 1
-
-    IF R.IB.PARAMETER.SB<IB.PARM.DEBUG> = "NO" THEN
-        IF IB.LOG.LEVEL <> "ERROR" THEN
-            M.CONTINUE = 0
-        END
-    END
-
     IF IB.LOG.LEVEL = "ERROR" THEN
         TXN.ERROR.TRACE<1,-1> = ETEXT
     END
 
+    YR.INTERFACE = DOWNCASE(M.ATM.INTERFACE.SB.ID)
+    IF YR.INTERFACE = "ib" THEN
+        YR.INTERFACE = "atm"
+    END
+
+    YMSG = YPID:SPACE(1):TRANS.KEY.ID:SPACE(1):FMT(G$THIS,"40L"):SPACE(1):ETEXT
+
+    LOG.ENABLED = ( R.IB.PARAMETER.SB<IB.PARM.DEBUG> = "YES" )
+    IF IB.LOG.LEVEL = "ERROR" OR LOG.ENABLED THEN
+        GOSUB CALL.LOGGER
+    END
+
     RETURN
 
-SHELL.EXEC:
+*----------
+INITIALISE:
+*----------
 
-    EXECUTE CHARX(255):"s":CMD CAPTURING MSG RETURNING YERR
+    YPORT.ID = SYSTEM(101)
+    YPID = JBASEGetPidFromPort(YPORT.ID)
+
+    RETURN
+
+*-----------
+CALL.LOGGER:
+*-----------
+
+    className = 'taredewi.com.atmlogger.atmLogger'
+    methodName = 'logMessage'
+    param = "<Logger><level>" : IB.LOG.LEVEL : "</level><Interface>" : YR.INTERFACE : "</Interface><Message><![CDATA[" :YMSG: "]]></Message></Logger>"
+
+    CALLJ className,methodName, param SETTING ret ON ERROR GOTO errHandler
+
+    RETURN
+
+*----------
+errHandler:
+*----------
+
+    err = SYSTEM(0)
+
+    BEGIN CASE
+
+    CASE err = 1
+        CRT "Fatal error creating thread"
+
+    CASE err = 2
+        CRT "Cannot find the JVM.dll !"
+
+    CASE err = 3
+        CRT "Class " : className : "doesn't exist !"
+    CASE err = 4
+        CRT "Unicode conversion error"
+    CASE err = 5
+        CRT "Method " : methodName : "doesn't exist !"
+    CASE err = 6
+        CRT "Cannot find object constructor"
+    CASE OTHERWISE
+
+        CRT "Error Number " : err : " incurred."
+    END CASE
 
     RETURN
 

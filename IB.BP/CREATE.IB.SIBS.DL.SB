@@ -1,0 +1,64 @@
+*-----------------------------------------------------------------------------
+* <Rating>300</Rating>
+*-----------------------------------------------------------------------------
+    PROGRAM CREATE.IB.SIBS.DL.SB
+*
+    SAVE.LIST = ""
+    SKIP.LIST<-1> = "F.IB.ATM.MESSAGE.LOG.SB"
+    SKIP.LIST<-1> = "F.IB.ATM.BALANCE.SB"
+    SKIP.LIST<-1> = "F.IB.CORR.FILE.SB"
+    SKIP.LIST<-1> = "F.IB.EDST.SUMM.SB"
+    SKIP.LIST<-1> = "F.IB.EORI.JULDATE.SB"
+    SKIP.LIST<-1> = "F.IB.ERMB.SB"
+    SKIP.LIST<-1> = "F.IB.ERMB.SUMM.SB"
+    SKIP.LIST<-1> = "F.IB.PIN.CHANGE.SB"
+    SKIP.LIST<-1> = "F.IB.REQUEST.NIB.TRANSFER.SB"
+    SKIP.LIST<-1> = "F.IB.MSG.LOG.SB"
+
+    OPEN "","IB.SIBS" TO F.SAVE ELSE
+
+        EXEC "CREATE-FILE IB.SIBS TYPE=UD"
+        OPEN "","IB.SIBS" TO F.SAVE ELSE
+            STOP "FAILED TO CREATE FOLDER IB.SIBS"
+        END
+    END
+
+    EXEC "CLEAR.FILE IB.SIBS"
+
+    SEL.LIST = ""
+    CMD = "SELECT VOC WITH @ID LIKE F....IB...SB AND @ID NE [IB.REQUEST.NIB.TRANSFER.SB AND @ID NE SIBS]"
+    EXEC CMD
+    LOOP
+        READNEXT YID ELSE YID = ""
+    WHILE YID DO
+        LOCATE YID IN SKIP.LIST SETTING POS ELSE
+            SEL.LIST<-1> = YID
+        END
+    REPEAT
+    YNO = DCOUNT(SEL.LIST, @FM )
+    FOR X = 1 TO YNO
+        FN.FILE = SEL.LIST<X>
+        F.FILE = ""
+        OPEN "",FN.FILE TO F.FILE THEN
+            CLEARSELECT
+            CMD = "SELECT " : FN.FILE
+            CLEARSELECT
+            CRT CMD
+            EXEC CMD
+            LOOP
+                READNEXT YID ELSE YID = ""
+            WHILE YID DO
+                READ YREC FROM F.FILE, YID THEN
+                    S.ID = FN.FILE : ">" : YID
+                    WRITE YREC TO F.SAVE, S.ID
+                END
+            REPEAT
+        END
+    NEXT X
+
+    CLEARSELECT
+    CMD = "SH -c 'tar -cvzf IB.SIBS.gz IB.SIBS IB.BP'"
+    EXEC CMD
+    STOP
+
+END

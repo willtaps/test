@@ -1,0 +1,97 @@
+*-----------------------------------------------------------------------------
+* <Rating>79</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SDR.ATM.POS.LINK.SB.ID
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INSERT IB.BP I_F.IB.PARAMETER.SB
+    $INSERT IB.BP I_F.IB.BANK.CODES.SB
+
+    GOSUB INITIALISE
+    GOSUB CHECK.ID
+
+    RETURN
+
+CHECK.ID:
+
+    CALL CACHE.READ("F.SDR.PARAMETER.SB", "SYSTEM", R.IB.PARAMETER.SB, YERR)
+
+    OWN.BANK.CODE = R.IB.PARAMETER.SB<IB.PARM.OWN.BANK.CODE>
+
+    PART1 = ID.NEW[".",1,1]
+    PART2 = ID.NEW[".",2,1]
+    PART3 = ID.NEW[".",3,1]
+
+    BEGIN CASE
+
+
+    CASE PART1 EQ "0000"
+
+        DEVICE.TYPES = "GET.DEVICES"
+        CALL IB.GET.TERM.TYPE.SB( DEVICE.TYPES )
+        LOCATE PART2 IN DEVICE.TYPES SETTING POS ELSE
+            E = "Invalid Terminal type"
+        END
+        IF NOT(E) AND PART3 THEN
+            CALL F.READ(FN.IB.OPE.TYPES.SB, PART3, R.IB.OPE.TYPES.SB, F.IB.OPE.TYPES.SB, YERR)
+            IF NOT(R.IB.OPE.TYPES.SB) THEN
+                E = "Invalid transaction type : " : PART3
+            END
+        END
+
+    CASE PART1 <> OWN.BANK.CODE
+
+        LOCATE PART2 IN DEVICE.TYPES SETTING POS ELSE
+            E = "INVALID DEVICE TYPE FOR NON-OWN-BANK"
+        END
+
+        IF PART3 AND NOT(E) THEN
+            E = "Invalid for Non Own Bank :" : PART3
+        END
+
+    CASE OTHERWISE
+
+        LOCATE PART2 IN DEVICE.TYPES SETTING POS THEN
+            E = "Please enter Terminal ID for own bank link ID"
+        END
+        IF PART3 AND NOT(E) THEN
+            LOCATE PART3 IN DEVICE.TYPES SETTING POS ELSE
+                E = "Invalid Terminal type"
+            END
+        END
+
+        IF LEN(PART2) <> 10 AND NOT(E) THEN
+            E = LEN(PART2) : " Invalid Terminal lenght 10 was expected"
+        END
+
+    END CASE
+
+    IF E THEN RETURN
+
+    YERR = ""
+    CALL CACHE.READ("F.IB.BANK.CODES.SB", PART1, R.IB.BANK.CODES.SB,YERR)
+    IF YERR THEN
+        E = "BANK CODE NOT DEFINED ON IB.BANK.CODES.SB"
+        RETURN
+    END
+
+    ID.ENRI = R.IB.BANK.CODES.SB<IB.CODE.NAME> : " - " : PART2[4]
+
+    RETURN
+
+INITIALISE:
+*==========
+*
+    RETURN.ERROR = ''         ;* Validation errors
+    HARD.TYPES = ""
+    E = ''
+    DEVICE.TYPES = "POS" : FM : "ATM"
+
+    FN.IB.OPE.TYPES.SB = "F.SDR.OPE.TYPES.SB"
+    F.IB.OPE.TYPES.SB = ""
+    CALL OPF(FN.IB.OPE.TYPES.SB, F.IB.OPE.TYPES.SB)
+
+    RETURN
+*
+END

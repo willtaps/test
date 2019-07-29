@@ -1,0 +1,25 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.CCLN.CLEARING.SB.SELECT
+
+    $INSERT ../T24_BP I_COMMON
+    $INSERT ../T24_BP I_EQUATE
+    $INSERT ../T24_BP I_GTS.COMMON
+    $INSERT ../T24_BP I_TSA.COMMON
+    $INSERT ../T24_BP I_F.TSA.STATUS
+    $INSERT ../T24_BP I_BATCH.FILES
+    $INSERT ../T24_BP I_F.TSA.SERVICE
+    $INSERT ../T24_BP I_F.USER
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INCLUDE IB.BP I_IB.ATM.CLEARING.COMMON
+    $INCLUDE IB.BP I_IB.TAG.SB.COMMON
+
+    SEL.CMD = "SELECT " : FN.IB.CLEARING.CONTROL.SB : " WITH @ID EQ CCLN] AND ( STATUS EQ [0] OR STATUS EQ [2])"
+    LIST.PARAM = ''
+    LIST.PARAM<3> = SEL.CMD
+    CALL BATCH.BUILD.LIST(LIST.PARAM,"")
+
+    RETURN
+
+END

@@ -1,3 +1,6 @@
+*-----------------------------------------------------------------------------
+* <Rating>460</Rating>
+*-----------------------------------------------------------------------------
     SUBROUTINE IB.MSG.LOGGER.SB(YR.ACTION, YR.RETURN)
 *
     $INSERT I_COMMON
@@ -104,9 +107,6 @@ READ.LOCK.MESSAGE:
 INITIALISE:
 
     TIME.NOW = TIME()
-
-    FN.IB.ATM.MESSAGE.LOG.SB = "F.IB.ATM.MESSAGE.LOG.SB" ; F.IB.ATM.MESSAGE.LOG.SB=""
-    CALL OPF(FN.IB.ATM.MESSAGE.LOG.SB, F.IB.ATM.MESSAGE.LOG.SB)
 
     M.IB.ATM.MESSAGE.LOG.SB.ID = YMSG.KEY
     IN.MSG = YR.RETURN
