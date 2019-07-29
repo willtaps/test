@@ -1,0 +1,36 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.MESSAGE.TAG.SB
+*-----------------------------------------------------------------------------
+*<doc>
+* TODO add a description of the application here.
+* @author willard.matsaudza@gmail.com
+* @stereotype Application
+* @package TODO define the product group and product, e.g. infra.eb
+* </doc>
+*-----------------------------------------------------------------------------
+* <region name= Inserts>
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_Table
+* </region>
+
+    Table.name = 'IB.MESSAGE.TAG.SB'
+    Table.title = 'IB.MESSAGE.TAG.SB'
+    Table.stereotype = 'H'
+    Table.product = 'EB'
+    Table.subProduct = ''
+    Table.classification = 'INT'
+    Table.systemClearFile = ''
+    Table.relatedFiles = ''
+    Table.isPostClosingFile = ''
+    Table.equatePrefix = 'IB.MSG.TAG'
+
+    Table.idPrefix = ''
+    Table.blockedFunctions = ''
+    Table.trigger = ''
+
+    RETURN
+
+END

@@ -1,0 +1,329 @@
+*-----------------------------------------------------------------------------
+* <Rating>813</Rating>
+*-----------------------------------------------------------------------------
+*
+!** Template FOR validation routines
+* @author willard.matsaudza@gmail.com
+* @stereotype validator
+* @package infra.eb
+*!
+*-----------------------------------------------------------------------------
+*** <region name= Modification History>
+*-----------------------------------------------------------------------------
+*** </region>
+
+*** <region name= Main section>
+
+    SUBROUTINE IB.MESSAGE.TAG.SB.VALIDATE
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.IB.MESSAGE.TAG.SB
+    $INCLUDE I_F.STANDARD.SELECTION
+    $INCLUDE I_GTS.COMMON
+
+    GOSUB INITIALISE
+    GOSUB PROCESS.MESSAGE
+
+    RETURN
+
+*** </region>
+
+*-----------------------------------------------------------------------------
+*** <region name= Validate>
+VALIDATE:
+* TODO - Add the validation code here.
+* Set AF, AV and AS to the field, multi value and sub value and invoke STORE.END.ERROR
+* Set ETEXT to point to the EB.ERROR.TABLE
+
+*      AF = MY.FIELD.NAME                 <== Name of the field
+*      ETEXT = 'EB-EXAMPLE.ERROR.CODE'    <== The error code
+*      CALL STORE.END.ERROR               <== Needs to be invoked per error
+
+    R.NEW(IB.MSG.TAG.OFS.NAME) = ""
+    R.NEW(IB.MSG.TAG.FLD.POS)  = ""
+
+    NO.DIR = DCOUNT(R.NEW(IB.MSG.TAG.DIRECTION),VM)
+    FOR DD = 1 TO NO.DIR
+        YDIR = R.NEW(IB.MSG.TAG.DIRECTION)<1,DD>
+        NO.APPS = DCOUNT(R.NEW(IB.MSG.TAG.APPLICATION)<1,DD>, @SM)
+        FOR XX = 1 TO NO.APPS
+            IF ETEXT THEN EXIT
+            YAPPL = R.NEW(IB.MSG.TAG.APPLICATION)<1,DD,XX>
+            IF YAPPL THEN
+                SSEL.REC = ""
+                CALL CACHE.READ("F.STANDARD.SELECTION",YAPPL,SSEL.REC,ETEXT)
+                LRF.POS = 0
+                LOCATE "LOCAL.REF" IN SSEL.REC<SSL.SYS.FIELD.NAME,1> SETTING POS THEN
+                    LRF.POS = SSEL.REC<SSL.SYS.FIELD.NO,POS>
+                END
+
+                YDATA = R.NEW(IB.MSG.TAG.APP.FIELD.NAME)<1,DD,XX>
+                IF YDATA THEN
+                    YFIELD.NAME = YDATA
+                    LOCATE YDATA IN SSEL.REC<SSL.SYS.FIELD.NAME,1> SETTING POS ELSE
+                        CONV.FIELD = YAPPL:"," : YDATA
+                        GOSUB GET.FIELD.NAME
+                        IF ETEXT THEN
+                            ETEXT = "INVALID FIELD FOR APPLICATION " : YAPPL
+                            AF = IB.MSG.TAG.APP.FIELD.NAME
+                            AV = DD
+                            AS = XX
+                            EXIT
+                        END ELSE
+                            R.NEW(IB.MSG.TAG.APP.FIELD.NAME)<1,DD,XX> = CONV.FIELD
+                            YFIELD.NAME = CONV.FIELD
+                        END
+                    END
+
+                    GOSUB GET.OFS.NAME
+                    R.NEW(IB.MSG.TAG.OFS.NAME)<1,DD,XX> = YOFS.NAME
+                    R.NEW(IB.MSG.TAG.FLD.POS)<1,DD,XX> = FLD.POS
+                END
+
+                CONV.DETAIL = R.NEW(IB.MSG.TAG.CONVERSION)<1,DD,XX>
+                IF CONV.DETAIL NE '' THEN
+                    CONV.FIELD = CONV.DETAIL[1,1]
+                    BEGIN CASE
+                    CASE CONV.FIELD = "@"
+                        SUBROUTINE.ID =  CONV.DETAIL[2,9999]
+                        COMPILED.OR.NOT = ''  ; R.ERR = ""
+                        CALL CHECK.ROUTINE.EXIST(SUBROUTINE.ID, COMPILED.OR.NOT, R.ERR)
+
+                        IF NOT(COMPILED.OR.NOT) THEN
+                            ETEXT = "SUBROUTINE NOT COMPILED -" : SUBROUTINE.ID
+                            AF = IB.MSG.TAG.CONVERSION
+                            AV = DD
+                            AS = XX
+                            EXIT
+                        END
+
+                    CASE CONV.FIELD EQ 'L'
+                        GOSUB CHANGE.LINK.REFERENCE
+                        IF NOT(ETEXT) THEN
+                            R.NEW(IB.MSG.TAG.CONVERSION)<1,DD,XX> = CONV.DETAIL
+                        END ELSE
+                            AF = IB.MSG.TAG.CONVERSION
+                            AV = DD
+                            AS = XX
+                            EXIT
+                        END
+                    CASE CONV.FIELD EQ 'F'
+                        FLD.CONV = CONV.DETAIL[" ",2,999]
+                        IF DCOUNT(FLD.CONV,",") <> 3 THEN
+                            ETEXT = "INVALID FIELD CONVERSION"
+                            AF = IB.MSG.TAG.CONVERSION
+                            AV = DD
+                            AS = XX
+                            EXIT
+                        END
+                    CASE OTHERWISE
+                        FLD.CONV = CONV.DETAIL[" ",2,999]
+                        IF DCOUNT(FLD.CONV,",") <> 2 THEN
+                            ETEXT = "INVALID CONVERSION FORMAT FOR " : CONV.DETAIL[" ",1,1]
+                            AF = IB.MSG.TAG.CONVERSION
+                            AV = DD
+                            AS = XX
+                            EXIT
+                        END
+                    END CASE
+                END
+            END
+        NEXT XX
+
+        NO.FIELDS = DCOUNT(R.NEW(IB.MSG.TAG.APP.FIELD.NAME)<1,DD>, SM)
+        FOR NN = 1 TO NO.FIELDS
+            IF R.NEW(IB.MSG.TAG.APP.FIELD.NAME)<1,DD,NN> THEN
+                IF NOT(R.NEW(IB.MSG.TAG.APPLICATION)<1,DD,NN>)  THEN
+                    ETEXT = "APPLICATION MISSING"
+                    AF = IB.MSG.TAG.APP.FIELD.NAME
+                    AV = NN
+                    EXIT
+                END
+            END
+        NEXT NN
+        IF YDIR = "IN" THEN
+            NO.FIELDS = DCOUNT(R.NEW(IB.MSG.TAG.APP.FIELD.NAME)<1,DD>, SM)
+            FOR NN = 1 TO NO.FIELDS
+                IF R.NEW(IB.MSG.TAG.CONVERSION)<1,DD,NN> THEN
+                    IF NOT(R.NEW(IB.MSG.TAG.APP.FIELD.NAME)<1,DD,NN>)  THEN
+                        IF R.NEW(IB.MSG.TAG.CONVERSION)<1,NN>[1,1] <> "@" THEN
+                            ETEXT = "FIELD.NAME MISSING"
+                            AF = IB.MSG.TAG.CONVERSION
+                            AV = NN
+                            AS = 1
+                            EXIT
+                        END
+                    END
+                END
+            NEXT NN
+        END
+    NEXT DD
+
+    IF ETEXT THEN
+        CALL STORE.END.ERROR
+    END
+
+    RETURN
+*** </region>
+
+GET.FIELD.NAME:
+
+    CONV.DETAIL = "L " : CONV.FIELD
+    GOSUB CHANGE.LINK.REFERENCE
+    CONV.FIELD = CONV.DETAIL[",",3,1]
+    RETURN
+
+*------------
+GET.OFS.NAME:
+*------------
+    YOFS.NAME = ""
+    FLD.POS = ""
+
+    LOCATE YFIELD.NAME IN SSEL.REC<SSL.SYS.FIELD.NAME,1> SETTING POS THEN
+        IF SSEL.REC<SSL.SYS.TYPE, POS> = "D" THEN
+            YOFS.NAME = YFIELD.NAME : ":%VM:%SM="
+            FLD.POS = SSEL.REC<SSL.SYS.FIELD.NO, POS>
+            RETURN
+        END
+    END
+
+    LOCATE YFIELD.NAME IN SSEL.REC<SSL.USR.FIELD.NAME,1> SETTING POS THEN
+        IF SSEL.REC<SSL.USR.TYPE , POS> = "D" THEN
+            OFS.NAME = YFIELD.NAME : ":%VM:%SM="
+            FLD.POS = SSEL.REC<SSL.USR.FIELD.NO, POS>
+
+        END ELSE
+
+            LRF.DATA = SSEL.REC<SSL.USR.FIELD.NO, POS>
+            IF LRF.DATA["<",1,1] = "LOCAL.REF" THEN
+                YY1 = LRF.DATA["<",2,1]
+                YY2 = YY1[",",2,1]
+                YY3 = YY2[">",1,1]
+                YOFS.NAME = "LOCAL.REF" : ":" : LRF.POS : ":" : YY3 :"="
+                FLD.POS = LRF.POS : "," : YY3
+
+            END
+        END
+    END
+    RETURN
+
+
+*---------------------
+CHANGE.LINK.REFERENCE:
+*---------------------
+
+    CONV.DETAIL = FIELD(CONV.DETAIL," ",2,99)     ;* Remove type descripion
+    CV1 = FIELD(CONV.DETAIL,',',1)      ;* Referenced File
+    CV2 = FIELD(CONV.DETAIL,',',2)      ;* Referenced Field
+    CV3 = FIELD(CONV.DETAIL,',',3)      ;* DBR argument
+
+
+    IF INDEX(CV2, ".", 1) THEN
+        CV2.1 = CV2[".",1,1]
+
+        CV2.2 = CV2[".",2,1]
+        IF NUM(CV2.1) AND NUM(CV2.2) THEN
+            CV2 = CV2.1
+        END ELSE
+            CV2.1 = ""
+            CV2.2 = ""
+        END
+    END
+
+    CALL CACHE.READ("F.STANDARD.SELECTION",CV1,CONV.SSEL.REC,ETEXT)
+    IF ETEXT THEN
+        ETEXT = "INVALID APPLICATION"
+        RETURN
+    END
+
+    LOCATE CV2 IN CONV.SSEL.REC<SSL.SYS.FIELD.NO,1> SETTING POS THEN
+        FIELD.NAME = CONV.SSEL.REC<SSL.SYS.FIELD.NAME,POS>
+    END ELSE
+        FIELD.NAME = CV2
+    END
+
+    IF FIELD.NAME = "LOCAL.REF" THEN
+        SEARCH.FIELD = "LOCAL.REF<1," : CV2.2 : ">"
+
+        Y1 = CONV.SSEL.REC<SSL.USR.FIELD.NO>
+        Y2 = CONV.SSEL.REC<SSL.USR.FIELD.NAME>
+
+        LOCATE SEARCH.FIELD IN CONV.SSEL.REC<SSL.USR.FIELD.NO,1> SETTING POS THEN
+            FIELD.NAME = CONV.SSEL.REC<SSL.USR.FIELD.NAME,POS>
+        END ELSE
+            ETEXT = "LOCAL.REF NOT FOUND " : CONV.DETAIL
+        END
+    END ELSE
+        LOCATE FIELD.NAME IN CONV.SSEL.REC<SSL.SYS.FIELD.NAME,1> SETTING POS ELSE
+            LOCATE FIELD.NAME IN CONV.SSEL.REC<SSL.USR.FIELD.NAME,1> SETTING POS ELSE
+                ETEXT = "INVALID FIELD FOR APPLICATION " : CV1
+            END
+        END
+    END
+
+    IF NOT(ETEXT) THEN
+
+        CONV.DETAIL = CONV.FIELD:" ":CV1:",":FIELD.NAME
+
+        IF CV3 NE '' THEN
+            CONV.DETAIL := ",":CV3
+        END
+
+    END
+
+
+    RETURN
+
+*-----------------------------------------------------------------------------
+*** <region name= Initialise>
+INITIALISE:
+***
+
+    RETURN
+*** </region>
+
+*-----------------------------------------------------------------------------
+*** <region name= Process Message>
+PROCESS.MESSAGE:
+    BEGIN CASE
+    CASE MESSAGE EQ ''        ;* Only during commit...
+        BEGIN CASE
+        CASE V$FUNCTION EQ 'D'
+            GOSUB VALIDATE.DELETE
+        CASE V$FUNCTION EQ 'R'
+            GOSUB VALIDATE.REVERSE
+        CASE OTHERWISE        ;* The real VALIDATE...
+            GOSUB VALIDATE
+        END CASE
+    CASE MESSAGE EQ 'AUT' OR MESSAGE EQ 'VER'     ;* During authorisation and verification...
+        GOSUB VALIDATE.AUTHORISATION
+    END CASE
+*
+    RETURN
+*** </region>
+
+*-----------------------------------------------------------------------------
+*** <region name= VALIDATE.DELETE>
+VALIDATE.DELETE:
+* Any special checks for deletion
+
+    RETURN
+*** </region>
+*-----------------------------------------------------------------------------
+*** <region name= VALIDATE.REVERSE>
+VALIDATE.REVERSE:
+* Any special checks for reversal
+
+    RETURN
+*** </region>
+*-----------------------------------------------------------------------------
+*** <region name= VALIDATE.AUTHORISATION>
+VALIDATE.AUTHORISATION:
+* Any special checks for authorisation
+
+    RETURN
+*** </region>
+*-----------------------------------------------------------------------------
+
+END

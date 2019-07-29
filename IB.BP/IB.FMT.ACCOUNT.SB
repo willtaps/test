@@ -1,0 +1,38 @@
+    SUBROUTINE IB.FMT.ACCOUNT.SB (YR.IN.ACCT , YR.OUT.ACCT)
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.INTERCO.PARAMETER
+
+    IF NOT(YR.IN.ACCT) THEN
+        START.CHAR = YR.OUT.ACCT[1,2]
+        IF START.CHAR EQ '00' THEN
+            YR.IN.ACCT = YR.OUT.ACCT * 1
+            IF LEN(YR.IN.ACCT) = 9 THEN
+                YR.IN.ACCT = LCCY : YR.IN.ACCT
+            END
+        END ELSE
+            BRANCH.CODE = YR.OUT.ACCT[2,3]
+            ACCT.BODY = YR.OUT.ACCT[6,99]
+            YR.IN.ACCT = BRANCH.CODE :  ACCT.BODY
+
+            BRANCH.CODE = YR.IN.ACCT[1,3]
+            LOCATE BRANCH.CODE IN R.INTERCO.PARAMETER<ST.ICP.BRANCH.CODE,1> SETTING BR.CODE ELSE
+                YR.IN.ACCT = ""
+            END
+        END
+    END ELSE
+        IF YR.IN.ACCT THEN
+            BRANCH.CODE = YR.IN.ACCT[1,3]
+            ACCT.BODY = YR.IN.ACCT[4,99]
+            YR.OUT.ACCT = "0" : BRANCH.CODE : "0" : ACCT.BODY
+        END ELSE
+            BRANCH.CODE = YR.OUT.ACCT[2,3]
+            ACCT.BODY = YR.OUT.ACCT[6,99]
+            YR.IN.ACCT = BRANCH.CODE :  ACCT.BODY
+        END
+    END
+
+    RETURN
+
+END

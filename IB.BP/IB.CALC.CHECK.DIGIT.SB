@@ -1,0 +1,38 @@
+    SUBROUTINE IB.CALC.CHECK.DIGIT.SB (YR.CARD.NUMBER)
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+
+    YR.NO = LEN(YR.CARD.NUMBER)
+    YR.VAL = 0
+    IF YR.NO EQ 15 THEN
+        FOR I = 0 TO (YR.NO - 1) STEP 2
+            YR.TMP1 = 0 ; YR.TMP2 = 0 ; YR.TMP3 = 0
+            YR.TMP1 = YR.CARD.NUMBER[YR.NO-I,1] * 2
+            FOR J = 1 TO LEN(YR.TMP1)
+                YR.TMP2 = YR.TMP2 + YR.TMP1[J,1]
+            NEXT J
+            IF (YR.NO - I) > 1 THEN
+                YR.TMP3 = YR.TMP2 + YR.CARD.NUMBER[(YR.NO - I) - 1,1]
+            END ELSE
+                IF MOD(YR.NO,2) > 0 THEN
+                    YR.TMP3 = YR.TMP2
+                END
+            END
+            YR.VAL = YR.VAL + YR.TMP3
+        NEXT I
+        LOOP
+        WHILE YR.VAL > 0
+            YR.VAL = YR.VAL - 10
+        REPEAT
+        YR.CHK.DIGIT = YR.VAL * -1
+        YR.CARD.NUMBER = YR.CARD.NUMBER : YR.CHK.DIGIT
+
+    END ELSE
+        ETEXT = 'ERRO NO BIN, BALCAO OU SEQUENCIA'
+    END
+
+    RETURN
+
+END

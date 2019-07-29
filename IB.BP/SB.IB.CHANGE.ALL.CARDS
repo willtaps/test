@@ -1,0 +1,60 @@
+    SUBROUTINE SB.IB.CHANGE.ALL.CARDS
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.DATES
+    $INCLUDE I_F.COMPANY
+    $INSERT IB.BP I_F.SB.PARAMETRO.IB
+    $INSERT IB.BP I_F.SB.HEADER.IB
+
+
+
+
+*--- Abertura de ficheiros e inicializacao de variaveis
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+
+*--- Seleccao das companhias para extraccao dos cartoes requisitados
+
+    CO.LIST = '' ; CO.NO = '' ; CO.ERR = ''
+    SEL.CO = 'SELECT ':FN.COMPANY:' WITH CONSOLIDATION.MARK EQ "N" SAVING MNEMONIC'
+    CALL EB.READLIST(SEL.CO,CO.LIST,'',CO.NO,CO.ERR)
+    FOR I = 1 TO CO.NO
+        MNE = CO.LIST<I>
+
+*--- Inico do tratamento da companhia
+
+        FN.CARD.ISSUE = 'F':MNE:'.CARD.ISSUE'
+        FV.CARD.ISSUE = ''
+        CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+*--- Seleccao dos registos a extractar da companhia
+        CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+        SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH @ID LIKE P24... AND REQUISIT.STATUS EQ "NO" AND DATAUTH LT ':TODAY
+        CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+        PRINT CARD.LIST:"":CARD.ERR
+*DEBUG
+        IF CARD.NO GT 0 THEN
+
+
+            FOR II = 1 TO CARD.NO
+                CARTAO.ID = CARD.LIST<II>
+
+                READ R.CARTAO FROM FV.CARD.ISSUE,CARTAO.ID ELSE R.CARTAO = ''
+
+                R.CARTAO<CARD.IS.LOCAL.REF,66>= "YES"
+                WRITE R.CARTAO TO FV.CARD.ISSUE,CARTAO.ID
+
+            NEXT II
+
+        END
+
+    NEXT I
+
+
+
+
+END

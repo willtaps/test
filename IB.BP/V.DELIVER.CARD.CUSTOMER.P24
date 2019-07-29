@@ -1,0 +1,79 @@
+*********************************************
+*Develop By : Priti Carsane
+*Developed for: Standard Bank Mozambique
+*
+*Summary Description: This authorisation routine is going to alter the status of cards, per card
+*gets the record in table CARD.ISSUE of the card number inputted then saves into history table.
+*Once saved, is gonna check the status if is equal to "3-Recebido a agencia" or "4-Entregue ao cliente".
+*If equals to 3, is gonna change the status to 4, writes the date in field "Date Rcv Branch" and writes in history
+*and then changes the status to "0-Normal Processing"
+*If equals to 4, changes the status to "0-Normal Processing" and writes the date in field " Date Activated".
+*
+*Development Date: 09/10/2014
+*Modified Date: 12/05/2015
+**********************************************
+
+    SUBROUTINE V.DELIVER.CARD.CUSTOMER.P24
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.COMPANY
+    $INSERT BP I_F.SB.CARD.RECEIVE
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.MNEMONIC.COMPANY
+
+    GOSUB INITIALISE
+    GOSUB PROCESS.CARDS
+
+    RETURN
+
+***********
+INITIALISE:
+***********
+    YCARD.TYPE = '';  YCARD.ID='' ; YCARD.ID2='' ; YACCT.ID = ''
+    YCARD.TYPE = R.NEW(EB.DEV.HLP.TIPO.CARTAO)
+    YCARD.ID = YCARD.TYPE:'.':R.NEW(EB.DEV.HLP.NUMERO.CARTAO)
+    YCARD.ID2 = R.NEW(EB.DEV.HLP.NUMERO.CARTAO)
+    YACCT.ID = R.NEW(EB.DEV.HLP.NUMERO.CONTA)
+
+    CALL GET.ACCT.BRANCH(YACCT.ID,MNEM,YCOMP)
+
+
+    RETURN
+
+**************
+PROCESS.CARDS:
+**************
+    IF V$FUNCTION EQ 'A' THEN
+        FN.MN.COMPANY = 'F.MNEMONIC.COMPANY'
+        F.MN.COMPANY = ''
+        CALL OPF(FN.MN.COMPANY,F.MN.COMPANY)
+        READ R.MNEM FROM F.MN.COMPANY,MNEM THEN
+            YCOMP = R.MNEM<AC.MCO.COMPANY>
+        END
+
+        R.OFS = ''
+        R.OFS = 'CARD.ISSUE,OFS/I/PROCESS,SAGACIOUS/123456/':YCOMP:','
+        R.OFS := YCARD.ID:',LOCAL.REF:1:=0,CARD.STATUS::=90,LOCAL.REF:41:=':TODAY
+        R.OFS := ',LOCAL.REF:56:=02,LOCAL.REF:67:=NO,LOCAL.REF:40:=':TODAY
+        CALL OFS.POST.MESSAGE(R.OFS,"","GENERIC.OFS.PROCESS","")
+
+        GOSUB UPDATE.ACCT
+    END
+    RETURN
+
+UPDATE.ACCT:
+
+    FN.ACCOUNT = 'F':MNEM:'.ACCOUNT'
+    FV.ACCOUNT = ''
+    CALL OPF(FN.ACCOUNT,FV.ACCOUNT)
+
+    R.ACT = '' ; AC.ERR = ''
+
+    CALL F.READ(FN.ACCOUNT,YACCT.ID,R.ACT,FV.ACCOUNT,AC.ERR)
+
+    YNO.CARDS = DCOUNT(R.ACT<AC.LOCAL.REF,81>,@SM)
+    R.ACT<AC.LOCAL.REF,81,YNO.CARDS+1> =  "P24.":YCARD.ID2
+    WRITE R.ACT TO FV.ACCOUNT,YACCT.ID
+END

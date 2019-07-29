@@ -1,0 +1,218 @@
+*-----------------------------------------------------------------------------
+* <Rating>285</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.OFS.BUILD.RECORD.SB(APP.NAME,OFSFUNCT,PROCESS,OFSVERSION,TRANSACTION.ID,RECORD,USER.INFO,OFSRECORD)
+
+**********************************************************************
+*DESCRIPTION:
+*------------
+*This routine has been designed to build an OFS record from the
+*informations passed in parameters.
+*This centralized process will allow modifications of the OFS' structure
+*to be easily maintained.
+*
+* Incoming parameters:
+* - APP.NAME           The application for which ofs will be invoked
+* - OFSFUNCT           The function (I,A,R or D)
+*                      If M is used this is supplied as M-ACTION where ACTION is the ACTION name
+* - PROCESS            The OFS process (should be always "PROCESS", or "BR.PROCESS" for Branch Resilience)
+* - OFSVERSION         The version used to input this transaction
+* - GTSMODE            The GTS.MODE to be used in this transction. This
+*                      mode will overwrite the GTS.MODE set in the version
+* - NO.OF.AUTH         The number of authorisers to be used. This number
+*                      overwrite the NO.OF.AUTH set in the version
+* - TRANSACTION.ID     The transaction id to be used. (mainly used with
+*                      functions A, R or D)
+* - RECORD             The record in dynamic array format
+* - USER.INFO          User Information
+* Outgoing parameters:
+* - OFSRECORD          The OFS record built from the incoming parameters
+*
+*
+**********************************************************************
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INSERT I_F.STANDARD.SELECTION
+
+**********************************************************************
+MAIN.SECTION:
+*------------
+
+    GOSUB INITIALISE
+    GOSUB BUILD.HEADER
+    GOSUB BUILD.DATA
+    GOSUB BUILD.ENTIRE.RECORD
+    RETURN          ;* to calling application
+**********************************************************************
+BUILD.HEADER:
+*------------
+
+*   OFSHEADER = ""
+*   OFSHEADER = APP.NAME : OFSVERSION:"/"
+*   OFSHEADER := OFSFUNCT:"/"
+*   OFSHEADER := PROCESS:","
+*   OFSHEADER := USER.NAME : "/" : USER.PWORD
+*   OFSHEADER :="/":ID.COMPANY:","
+*   OFSHEADER := TRANSACTION.ID:","
+
+
+    NO.OF.AUTH = 0
+    OFSACTION = ""
+    SIMULATION.MODE = ""
+    SIMULATION.REF = ""
+
+    OFSHEADER = ""
+    OFSHEADER = APP.NAME : OFSVERSION:"/"
+    OFSHEADER := OFSFUNCT:"/"
+    OFSHEADER := PROCESS:"/"
+    OFSHEADER := GTSMODE:"/"
+    OFSHEADER := NO.OF.AUTH:"/"
+    OFSHEADER := OFSACTION:","
+    OFSHEADER := USER.NAME : "/" : USER.PWORD
+    OFSHEADER := "/":ID.COMPANY:"/"
+    OFSHEADER := "///":SIMULATION.MODE:"/"
+    OFSHEADER := SIMULATION.REF:","
+    OFSHEADER := TRANSACTION.ID:","
+
+    RETURN
+**********************************************************************
+BUILD.DATA:
+*----------
+
+    IF OFSFUNCT = "R" THEN RETURN
+
+    OFSDATA = ""
+    NB.OF.FIELDS = DCOUNT(RECORD,FM)
+
+    IF OFSFUNCT = "M" THEN
+        OFSDATA = RECORD
+        CONVERT FM TO "," IN RECORD
+    END ELSE
+        FOR FIELD.NO = 1 TO NB.OF.FIELDS
+
+            IF RECORD<FIELD.NO> <> "" THEN
+                GOSUB GET.FIELD.NAME
+                BEGIN CASE
+
+                CASE NOINP.FLAG = 1
+                    NOINP.FLAG = 0
+
+                CASE OTHERWISE
+                    NO.OF.VM = DCOUNT(RECORD<FIELD.NO>,VM)
+                    IF NO.OF.VM = 0 THEN
+                        NO.OF.VM = 1
+                    END
+
+                    FOR VM.NO = 1 TO NO.OF.VM
+                        NO.OF.SM = DCOUNT(RECORD<FIELD.NO,VM.NO>,SM)
+                        IF NO.OF.SM = 0 THEN
+                            NO.OF.SM = 1
+                        END
+                        FOR SM.NO = 1 TO NO.OF.SM
+                            IF FIELD.NAME = 'LOCAL.REF' THEN          ;* If a Local Ref Field
+                                LOCATE "LOCAL.REF<1,":VM.NO:">" IN R.STANDARD.SELECTION<SSL.SYS.FIELD.NO,1> SETTING LPOS THEN
+                                    IF R.STANDARD.SELECTION<SSL.SYS.VAL.PROG,LPOS> MATCHES "...NOINPUT..." THEN
+                                        CONTINUE  ;* Dont populate Data
+                                    END
+                                END
+                            END
+                            YFIELD.DATA = RECORD<FIELD.NO,VM.NO,SM.NO>
+                            IF LEN(YFIELD.DATA) >= 1 THEN
+                                CONVERT '"' TO '|' IN YFIELD.DATA
+*      OFSDATA := FIELD.NAME:':':VM.NO:':':SM.NO:'="':YFIELD.DATA:'",'
+                                OFSDATA := FIELD.NAME:':':VM.NO:':':SM.NO:'=':YFIELD.DATA:','
+
+                            END
+                        NEXT SM.NO
+                    NEXT VM.NO
+
+                END CASE
+            END
+        NEXT FIELD.NO
+    END
+
+    RETURN
+**********************************************************************
+BUILD.ENTIRE.RECORD:
+*-------------------
+
+    OFSRECORD = OFSHEADER : OFSDATA
+
+    RETURN
+**********************************************************************
+GET.FIELD.NAME:
+*--------------
+
+    LOCATE FIELD.NO IN R.STANDARD.SELECTION<SSL.SYS.FIELD.NO,1> SETTING POS THEN
+
+        FIELD.NAME = R.STANDARD.SELECTION<SSL.SYS.FIELD.NAME,POS>
+        FIELD.TYPE = R.STANDARD.SELECTION<SSL.SYS.SINGLE.MULT,POS>
+
+        IF R.STANDARD.SELECTION<SSL.SYS.VAL.PROG,POS> MATCHES "...NOINPUT..." THEN
+            NOINP.FLAG = 1
+            IF FIELD.NAME = 'LOCAL.REF' THEN
+                NOINP.FLAG = 0
+            END
+        END ELSE
+            NOINP.FLAG = 0
+        END
+
+        IF R.STANDARD.SELECTION<SSL.SYS.VAL.PROG,POS> MATCHES "...NOINPUT..." AND INCLUDE.NOINPUTS THEN
+            NOINP.FLAG = 0
+        END
+
+        IF R.STANDARD.SELECTION<SSL.SYS.VAL.PROG,POS> MATCHES "...EXTERN..." THEN
+            IF INCLUDE.NOINPUTS THEN
+                NOINP.FLAG = 1
+            END ELSE
+                NOINP.FLAG = 0
+            END
+        END
+    END
+
+    RETURN
+
+**********************************************************************
+INITIALISE:
+*----------
+
+    GTSMODE = OFSFUNCT<2>
+    OFSFUNCT =  OFSFUNCT<1>
+
+    CALL GET.STANDARD.SELECTION.DETS(APP.NAME,R.STANDARD.SELECTION)   ;*read the standard selection record
+
+    IF R.STANDARD.SELECTION = '' THEN   ;*if not present fatal out
+        E = "RECORD NOT FOUND"
+        GOTO FATAL.ERR
+    END
+    NOINP.FLAG = 0
+
+    INCLUDE.NOINPUTS = 0      ;* GLOBUS_BG_100012212 S
+    IF PROCESS = "BR.PROCESS" THEN
+        PROCESS = "PROCESS"
+        INCLUDE.NOINPUTS = 1
+    END
+*
+    OFSACTION = ''
+    SIMULATION.MODE=OFSFUNCT<2>         ;* retrieve the simulation mode passed
+    SIMULATION.REF=OFSFUNCT<3>          ;* retrieve the simulation reference passed
+    OFSFUNCT=OFSFUNCT<1>      ;* retrieve the function passed
+    IF OFSFUNCT[1,1] = 'M' THEN
+        OFSACTION = OFSFUNCT["-",2,99]
+        OFSFUNCT = OFSFUNCT[1,1]
+    END
+
+    USER.NAME = USER.INFO<1>
+    USER.PWORD = USER.INFO<2>
+
+    RETURN
+**********************************************************************
+FATAL.ERR:
+*---------
+
+    TEXT = E
+
+    RETURN
+
+END

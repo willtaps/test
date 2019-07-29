@@ -1,0 +1,93 @@
+*-----------------------------------------------------------------------------
+* <Rating>-10</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.PIN.CHANGE.SB.FIELDS
+*-----------------------------------------------------------------------------
+*<doc>
+* Template for field definitions routine YOURAPPLICATION.FIELDS
+*
+* @author willard.matsaudza@gmail.com
+* @stereotype fields template
+* @uses Table
+* @public Table Creation
+* @package infra.eb
+* </doc>
+*-----------------------------------------------------------------------------
+* Modification History :
+*
+* 19/10/07 - EN_10003543
+*            New Template changes
+*
+* 14/11/07 - BG_100015736
+*            Exclude routines that are not released
+*-----------------------------------------------------------------------------
+*** <region name= Header>
+*** <desc>Inserts and control logic</desc>
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_DataTypes
+*** </region>
+*-----------------------------------------------------------------------------
+    CALL Table.defineId("IB.MSG.GRP.ID", T24_String)        ;* Define Table id
+*-----------------------------------------------------------------------------
+    CALL Table.addField("CODMSG", T24_String, "", "")
+    CALL Table.addField("VERMSG", T24_String, "", "")
+    CALL Table.addField("APLICPDD", T24_String, "", "")
+    CALL Table.addField("IDLOG", T24_String, "", "")
+    CALL Table.addField("NRLOG", T24_String, "", "")
+    CALL Table.addField("DHMSG", T24_String, "", "")
+    CALL Table.addField("CODMOEDA", T24_String, "", "")
+    CALL Table.addField("TIPOTERM", T24_String, "", "")
+    CALL Table.addField("BANAPOIO", T24_String, "", "")
+    CALL Table.addField("IDPROP", T24_String, "", "")
+    CALL Table.addField("IDTERMINAL", T24_String, "", "")
+    CALL Table.addField("DTHORA", T24_String, "", "")
+    CALL Table.addField("IDPERLOCAL", T24_String, "", "")
+    CALL Table.addField("NUMREGLOC", T24_String, "", "")
+    CALL Table.addField("LOCTERM", T24_String, "", "")
+    CALL Table.addField("DISTCONC", T24_String, "", "")
+    CALL Table.addField("MCC", T24_String, "", "")
+    CALL Table.addField("CODPAIS", T24_String, "", "")
+    CALL Table.addField("BIN", T24_String, "", "")
+    CALL Table.addField("EXBIN", T24_String, "", "")
+    CALL Table.addField("NUMCAR", T24_String, "", "")
+    CALL Table.addField("SEQPAN", T24_String, "", "")
+    CALL Table.addField("CONTA", T24_String, "", "")
+    CALL Table.addField("SEQMOV", T24_String, "", "")
+    CALL Table.addField("TIPOAUT", T24_String, "", "")
+    CALL Table.addField("CODTRN", T24_String, "", "")
+    CALL Table.addField("XX>MONTANTE", T24_String, "", "")
+    CALL Table.addField("XX.SINAL", T24_String, "", "")
+    CALL Table.addField("XX.TAXACLI", T24_String, "", "")
+    CALL Table.addField("XX.COMEMI", T24_String, "", "")
+    CALL Table.addField("XX>COMPROP", T24_String, "", "")
+    CALL Table.addField("XX<PVV2", T24_String, "", "")
+    CALL Table.addField("XX>PVV3", T24_String, "", "")
+    CALL Table.addField("FILLER14", T24_String, "", "")
+    CALL Table.addField("NRIDRESP-O", T24_String, "", "")
+    CALL Table.addField("APLICPDD-O", T24_String, "", "")
+    CALL Table.addField("IDLOG-O", T24_String, "", "")
+    CALL Table.addField("NRLOG-O", T24_String, "", "")
+    CALL Table.addField("DHMSG-O", T24_String, "", "")
+    CALL Table.addField("MOTANUL", T24_String, "", "")
+    CALL Table.addReservedField('RESERVED.10')
+    CALL Table.addReservedField('RESERVED.9')
+    CALL Table.addReservedField('RESERVED.8')
+    CALL Table.addReservedField('RESERVED.7')
+    CALL Table.addReservedField('RESERVED.6')
+    CALL Table.addReservedField('RESERVED.5')
+    CALL Table.addReservedField('RESERVED.4')
+    CALL Table.addReservedField('RESERVED.3')
+    CALL Table.addReservedField('RESERVED.2')
+    CALL Table.addReservedField('RESERVED.1')
+
+*   CALL Field.setCheckFile(fileName)        ;* Use DEFAULT.ENRICH from SS or just field 1
+*    CALL Table.addFieldDefinition(fieldName, fieldLength, fieldType, neighbour) ;* Add a new field
+*    CALL Table.addFieldWithEbLookup(fieldName,virtualTableName,neighbour) ;* Specify Lookup values
+*    CALL Field.setDefault(defaultValue) ;* Assign default value
+*-----------------------------------------------------------------------------
+    CALL Table.setAuditPosition         ;* Poputale audit information
+*-----------------------------------------------------------------------------
+    RETURN
+*-----------------------------------------------------------------------------
+END

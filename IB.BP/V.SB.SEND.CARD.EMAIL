@@ -1,0 +1,173 @@
+*********************************************
+*Develop By : Priti Carsane
+*Developed for: Standard Bank Mozambique
+*Development Date: 08/06/2015
+*
+*Summary Description: Rotina que gera XML, de notificacao ao cliente
+*
+*Revision by: Priti Carsane
+*Revision Comment: Changes made to adapt 2 types of notifications, cards and cheques
+*This routine generates a XML when card/cheque reaches in company
+*Revision Date: 23/09/2015
+*Version: 1.1
+*
+*Revision by: Priti Carsane
+*Revision Comment: Changes done to retrieve customer contact details from tables EB.NOTIFICATION.SERVICE,
+*EB.SB.REGISTO.NOTIFICACAO and CUSTOMER and to generate xml for SMS in SMS_ALERT and for EMAIL in EMAIL_ALERT
+*Revision Date: 29/09/2015
+*Version: 1.2
+*
+*Revision by: Priti Carsane
+*Revision Comment: Changes done for SMS, if no contact found of the customer in the 1st to table, it shouldn't look
+*in customer, due to the several formats found of contacts.
+*Revision Date: 19/11/2015
+*Version: 1.3
+
+**********************************************
+
+    SUBROUTINE V.SB.SEND.CARD.EMAIL(YACCT.ID,YBALCAO,YMSG)
+
+    $INCLUDE I_EQUATE
+    $INCLUDE I_COMMON
+    $INCLUDE I_F.CUSTOMER
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE BP I_F.SB.REGISTO.NOTIFICACAO
+    $INCLUDE BP I_F.NOTIFICATION.SERVICE
+    $INCLUDE I_F.COMPANY
+
+
+    GOSUB OPEN.FILES
+    GOSUB READ.NOTIFICATION
+
+
+OPEN.FILES:
+    YCONTACT.SMS = '' ; YLANG = ''
+    YCONTACT.EMAIL = ''
+
+    FN.EA = 'EMAIL_ALERT'
+    F.EA = ''
+    CALL OPF(FN.EA,F.EA)
+
+
+    FN.SA = 'SMS_ALERT'
+    F.SA = ''
+    CALL OPF(FN.SA,F.SA)
+    CALL DBR('COMPANY':@FM:EB.COM.COMPANY.NAME,ID.COMPANY,YBRANCH)
+
+    RETURN
+
+
+
+READ.NOTIFICATION:
+    CALL DBR('EB.NOTIFICATION.SERVICE':@FM:EB.NOT62.LANGUAGE,YACCT.ID,YLANG)
+    CALL DBR('EB.NOTIFICATION.SERVICE':@FM:EB.NOT62.DEFAULT.SMS,YACCT.ID,YCONTACT.SMS)
+
+    IF YCONTACT.SMS NE '' THEN
+        GOSUB SMS.XML
+    END
+
+    CALL DBR('EB.NOTIFICATION.SERVICE':@FM:EB.NOT62.DEFAULT.EMAIL,YACCT.ID,YCONTACT.EMAIL)
+
+    IF YCONTACT.EMAIL NE '' THEN
+        GOSUB EMAIL.XML
+    END
+
+    IF YLANG EQ '' THEN
+        GOTO READ.NOTIFICACAO
+    END
+    RETURN
+
+
+READ.NOTIFICACAO:
+
+    CALL DBR('EB.SB.REGISTO.NOTIFICACAO':@FM:EB.SB.31.LANGUAGE,YACCT.ID,YLANG)
+    CALL DBR('EB.SB.REGISTO.NOTIFICACAO':@FM:EB.SB.31.SMS.NO,YACCT.ID,YCONTACT.SMS)
+    IF YCONTACT.SMS NE '' THEN
+        CNT = DCOUNT(YCONTACT.SMS,@VM)
+        YCONTACT.SMS = YCONTACT.SMS<1,1>
+        GOSUB SMS.XML
+    END
+
+    CALL DBR('EB.SB.REGISTO.NOTIFICACAO':@FM:EB.SB.31.EMAIL.ADDR,YACCT.ID,YCONTACT.EMAIL)
+
+    IF YCONTACT.EMAIL NE '' THEN
+        GOSUB EMAIL.XML
+    END
+
+    IF YLANG EQ '' THEN
+        GOTO READ.CUSTOMER
+    END
+
+    RETURN
+
+
+READ.CUSTOMER:
+    CALL DBR('ACCOUNT':@FM:AC.CUSTOMER,YACCT.ID,YCUS.ID)
+
+    CALL DBR('CUSTOMER':@FM:EB.CUS.EMAIL.1,YCUS.ID,YCONTACT.EMAIL)
+
+    IF LEN(YCONTACT.EMAIL) GE 10 THEN
+        GOSUB EMAIL.XML
+    END
+
+    RETURN
+
+EMAIL.XML:
+    GOSUB CHECK.LANGUAGE
+    CONVERT @VM TO ";" IN  YCONTACT.EMAIL
+    R.XML = ''
+    R.XML<-1> = "<?xml version = '1.0' encoding = 'ISO-8859-1'?>"
+    R.XML<-1> = '<EMAIL>'
+    R.XML<-1> = '<ALERT.TYPE>Notify</ALERT.TYPE>'
+    R.XML<-1> = '<AcctNumber>':YACCT.ID:'</AcctNumber>'
+    R.XML<-1> = '<Contact>':YCONTACT.EMAIL:'</Contact>'
+    R.XML<-1> = '<TipoMsg>':YMSG:'</TipoMsg>'
+    R.XML<-1> = '<Language>':YLANG:'</Language>'
+    R.XML<-1> = '<Branch>':YBRANCH:'</Branch>'
+    R.XML<-1> = '</EMAIL>'
+    YDATE.TIME = TIMEDATE()
+    YDATE.TIME =FIELD(YDATE.TIME," ",1)
+    YDATE.TIME = TODAY:"":FIELD(YDATE.TIME,":",1):"":FIELD(YDATE.TIME,":",2):"":FIELD(YDATE.TIME,":",3)
+    ID.XML = "EMAILCN-NUM_":YACCT.ID:"_":YDATE.TIME:".xml"
+
+    WRITE R.XML TO F.EA,ID.XML ON ERROR NULL
+    RETURN
+
+
+SMS.XML:
+    GOSUB CHECK.LANGUAGE
+    CONVERT @VM TO ";" IN  YCONTACT.SMS
+    R.XML = ''
+    R.XML<-1> = '<?xml version="1.0" encoding="UTF-8"?>'
+    R.XML<-1> = '<SMS>'
+    R.XML<-1> = '<ALERT.TYPE>Notify</ALERT.TYPE>'
+    R.XML<-1> = '<AcctNumber>':YACCT.ID:'</AcctNumber>'
+    R.XML<-1> = '<Contact>':YCONTACT.SMS:'</Contact>'
+    R.XML<-1> = '<TipoMsg>':YMSG:'</TipoMsg>'
+    R.XML<-1> = '<Language>':YLANG:'</Language>'
+    R.XML<-1> = '<Branch>':YBRANCH:'</Branch>'
+    R.XML<-1> = '</SMS>'
+    YDATE.TIME = TIMEDATE()
+    YDATE.TIME =FIELD(YDATE.TIME," ",1)
+    YDATE.TIME = TODAY:"":FIELD(YDATE.TIME,":",1):"":FIELD(YDATE.TIME,":",2):"":FIELD(YDATE.TIME,":",3)
+    ID.XML = "SMSCN-NUM_":YACCT.ID:"_":YDATE.TIME:".xml"
+
+    WRITE R.XML TO F.SA,ID.XML ON ERROR NULL
+    RETURN
+
+CHECK.LANGUAGE:
+
+    IF YLANG EQ '' THEN
+        YLANG = 2
+    END
+    IF YLANG EQ 1 THEN
+        IF YMSG EQ 'CARTAO DE DEBITO' THEN
+            YMSG = 'DEBIT CARD'
+        END
+        IF YMSG EQ 'LIVRO DE CHEQUES' THEN
+            YMSG = 'CHEQUE BOOK'
+        END
+    END
+    RETURN
+
+END

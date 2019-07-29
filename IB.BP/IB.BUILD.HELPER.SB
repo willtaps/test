@@ -1,0 +1,31 @@
+    SUBROUTINE IB.BUILD.HELPER.SB
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+
+    YID = "IB.TABLES"
+
+    EXEC "COMO ON WILL" : TIME()
+
+    OPEN "","&SAVEDLISTS&" TO F.SAVE THEN
+
+        READ YREC FROM F.SAVE, YID THEN
+            YAPPL = YREC<1>
+        END
+        IF YAPPL THEN
+            DEL YREC<1>
+            WRITE YREC TO F.SAVE, YID
+            CLEARDATA
+            INPUT.BUFFER = ""
+            INPUT.BUFFER = "EB.DEV.HELPER V " : YAPPL : " " : C.V
+            DATA "Y", "Y", "Y", "Y" , "Y" ,C.U, C.U,"IB.BUILD.HELPER.SB"
+
+        END
+    END
+
+    SLEEP 1
+    EXEC "COMO OFF"
+
+    RETURN
+
+END

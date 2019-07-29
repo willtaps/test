@@ -1,0 +1,376 @@
+*-----------------------------------------------------------------------------
+* <Rating>2353</Rating>
+*-----------------------------------------------------------------------------
+      SUBROUTINE GIC.CARD.EDST
+*
+****************************************************************
+* This will be the Template program for the EDST file. This    *
+* file is the main file received from SIBS(switch), containing *
+* Transactions corresponding to several types of procedures.   *
+* This file will be received per Branch, so there will be      *
+* multiple files per session or day. All transactions that were*
+* performed by Customers with cards belonging to BSTM, will be *
+* received on this file, including transactions created abroad.*
+* Transactions that were accepted during the Online day, will  *
+* also be on this file. On every file received, there will be  *
+* a Header record, with REG.TYPE = 0, a Trailer record, with   *
+* REG.TYPE = 9, and there could be many types of detail records*
+* with the REG.TYPE = 1,2,3,4,5 & 6. All records will be of    *
+* fixed length with 378 Bytes.                                 *
+****************************************************************
+*
+*    First Release :     Sunday, November 18, 2001
+*    Developed for :     BSTM, Mozambique
+*    Developed by  :     Herman Van Brakel
+*
+$INCLUDE I_COMMON
+$INCLUDE I_EQUATE
+$INSERT I_F.GIC.CARD.EDST
+*
+*******************************************************************
+*
+      GOSUB DEFINE.PARAMETERS
+
+      IF LEN(V$FUNCTION) GT 1 THEN
+         GOTO V$EXIT
+      END
+
+      CALL MATRIX.UPDATE
+
+      GOSUB INITIALISE                   ; * Special Initialising
+*
+*******************************************************************
+
+* Main Program Loop
+*
+      LOOP
+*
+         CALL RECORDID.INPUT
+
+      UNTIL MESSAGE = 'RET' DO
+
+         V$ERROR = ''
+
+         IF MESSAGE = 'NEW FUNCTION' THEN
+
+            GOSUB CHECK.FUNCTION         ; * Special Editing of Function
+
+            IF V$FUNCTION EQ 'E' OR V$FUNCTION EQ 'L' THEN
+               CALL FUNCTION.DISPLAY
+               V$FUNCTION = ''
+            END
+
+         END ELSE
+*
+            GOSUB CHECK.ID               ; * Special Editing of ID
+            IF V$ERROR THEN GOTO MAIN.REPEAT
+*
+            CALL RECORD.READ
+*
+            IF MESSAGE = 'REPEAT' THEN
+               GOTO MAIN.REPEAT
+            END
+*
+            GOSUB CHECK.RECORD           ; * Special Editing of Record
+            IF V$ERROR THEN GOTO MAIN.REPEAT
+*
+            CALL MATRIX.ALTER
+*
+            GOSUB PROCESS.DISPLAY        ; * For Display applications
+*
+            LOOP
+               GOSUB PROCESS.FIELDS      ; * ) For Input
+               GOSUB PROCESS.MESSAGE     ; * ) Applications
+            WHILE MESSAGE = 'ERROR' DO REPEAT
+*
+         END
+*
+MAIN.REPEAT:
+*
+      REPEAT
+*
+V$EXIT:
+      RETURN                             ; * From main program
+*
+*******************************************************************
+*                S u b r o u t i n e s                            *
+*******************************************************************
+*
+PROCESS.FIELDS:
+*
+* Input or display the record fields.
+
+      LOOP
+
+         IF SCREEN.MODE EQ 'MULTI' THEN
+            IF FILE.TYPE EQ 'I' THEN
+               CALL FIELD.MULTI.INPUT
+            END ELSE
+               CALL FIELD.MULTI.DISPLAY
+            END
+         END ELSE
+            IF FILE.TYPE EQ 'I' THEN
+               CALL FIELD.INPUT
+            END ELSE
+               CALL FIELD.DISPLAY
+            END
+         END
+
+      UNTIL MESSAGE <> "" DO
+*
+         GOSUB CHECK.FIELDS              ; * Special Field Editing
+*
+         IF T.SEQU NE '' THEN T.SEQU<-1> = A + 1
+*
+      REPEAT
+*
+      RETURN
+*
+*******************************************************************
+*
+PROCESS.MESSAGE:
+
+* Processing after exiting from field input (PF5)
+
+      IF MESSAGE = 'VAL' THEN
+         MESSAGE = ''
+         BEGIN CASE
+            CASE V$FUNCTION EQ 'D'
+REM >          GOSUB CHECK.DELETE              ;* Special Deletion checks
+            CASE V$FUNCTION EQ 'R'
+               GOSUB CHECK.REVERSAL      ; * Special Reversal checks
+            CASE OTHERWISE
+               GOSUB CROSS.VALIDATION    ; * Special Cross Validation
+         END CASE
+         IF NOT(V$ERROR) THEN
+            GOSUB BEFORE.UNAU.WRITE      ; * Special Processing before write
+         END
+         IF NOT(V$ERROR) THEN
+            CALL UNAUTH.RECORD.WRITE
+            IF MESSAGE <> "ERROR" THEN
+               GOSUB AFTER.UNAU.WRITE    ; * Special Processing after write
+            END
+         END
+      END
+*
+      IF MESSAGE = 'AUT' THEN
+         GOSUB AUTH.CROSS.VALIDATION     ; * Special Cross Validation
+         IF NOT(V$ERROR) THEN
+            GOSUB BEFORE.AUTH.WRITE      ; * Special Processing before write
+         END
+*
+         IF NOT(V$ERROR) THEN
+
+            CALL AUTH.RECORD.WRITE
+
+            IF MESSAGE <> "ERROR" THEN
+               GOSUB AFTER.AUTH.WRITE    ; * Special Processing after write
+            END
+         END
+*
+      END
+*
+      RETURN
+*
+*******************************************************************
+DEFINE.PARAMETERS:
+REM "DEFINE PGM NAME (BY USING 'C/BSTM.INTEREST.RATE/.../G9999')
+*==================================================================
+      MAT F = "" ; MAT N = "" ; MAT T = "" ; ID.T = ""
+      MAT CHECKFILE = "" ; MAT CONCATFILE = ""
+      ID.CHECKFILE = "" ; ID.CONCATFILE = ""
+*==================================================================
+REM "DEFINE PARAMETERS - SEE 'I_RULES'-DESCRIPTION:
+      ID.F = "ID" ; ID.N = "20" ; ID.T = "A"
+      ID.T<5>=""
+*
+      Z = 0
+      Z+=1 ; F(Z)="REG.TYPE" ; N(Z)="1..C" ; T(Z)<1>="" ; T(Z)<2>="0_1_2_3_4_5_6_9"
+      Z+=1 ; F(Z)="APLICPDD" ; N(Z)="1" ; T(Z)=""  ; * Needed for direct access into SIBS Log
+      Z+=1 ; F(Z)="IDLOG" ; N(Z)="4" ; T(Z)=""     ; * Same as above
+      Z+=1 ; F(Z)="NRLOG" ; N(Z)="8" ; T(Z)=""     ; * Same as above
+      Z+=1 ; F(Z)="TPROC" ; N(Z)="1" ; T(Z)=""     ; * Operation ID Data Code
+      Z+=1 ; F(Z)="MODENV" ; N(Z)="1" ; T(Z)=""    ; * Batch or Real Time Indicator
+      Z+=1 ; F(Z)="DHMSG" ; N(Z)="14" ; T(Z)=""    ; * Date & Time Batch was realised
+      Z+=1 ; F(Z)="CODRESP" ; N(Z)="1" ; T(Z)=""   ; * Code on Response Code Table
+      Z+=1 ; F(Z)="NRIDRESP" ; N(Z)="14" ; T(Z)=""           ; * Date & Time
+      Z+=1 ; F(Z)="TIPOTERM" ; N(Z)="1" ; T(Z)=""  ; * Type of Terminal
+      Z+=1 ; F(Z)="BANAPOIO" ; N(Z)="4" ; T(Z)=""  ; * Bank Code
+      Z+=1 ; F(Z)="IDPROP" ; N(Z)="7" ; T(Z)=""    ; * Terminal Ownership
+      Z+=1 ; F(Z)="IDTERMINAL" ; N(Z)="10" ; T(Z)=""         ; * Terminal ID
+      Z+=1 ; F(Z)="DTHORA" ; N(Z)="14" ; T(Z)=""   ; * Date & Time Processed
+      Z+=1 ; F(Z)="IDPERLOCAL" ; N(Z)="3" ; T(Z)=""          ; * Local Terminal. File seq no.
+      Z+=1 ; F(Z)="NUMREGLOC" ; N(Z)="5" ; T(Z)=""           ; * No of records in Batch - POS
+      Z+=1 ; F(Z)="LOCTERM" ; N(Z)="40" ; T(Z)=""  ; * Terminal Location, Fee reason code text
+      Z+=1 ; F(Z)="DISTCONC" ; N(Z)="4" ; T(Z)=""  ; * More Term details
+      Z+=1 ; F(Z)="MCC" ; N(Z)="04" ; T(Z)=""      ; * Terminal Activity Code
+      Z+=1 ; F(Z)="CODPAIS" ; N(Z)="3" ; T(Z)=""   ; * Country Code
+*
+* Fields 1 - 20
+*
+      Z+=1 ; F(Z)="BIN" ; N(Z)="6" ; T(Z)=""       ; * Bank Code
+      Z+=1 ; F(Z)="EXBIN" ; N(Z)="2" ; T(Z)=""     ; * Bin's Extension
+      Z+=1 ; F(Z)="CARD.NUM" ; N(Z)="7" ; T(Z)=""  ; * Card Number
+      Z+=1 ; F(Z)="SEQPAN" ; N(Z)="1" ; T(Z)=""    ; * Card's Seq No
+      Z+=1 ; F(Z)="CONTA" ; N(Z)="15" ; T(Z)=""    ; * Acct No Linked to Card
+      Z+=1 ; F(Z)="SEQMOV" ; N(Z)="2" ; T(Z)=""    ; * Seq No of Card Transaction
+      Z+=1 ; F(Z)="TIPOAUT" ; N(Z)="2" ; T(Z)=""   ; *
+      Z+=1 ; F(Z)="CODTRN" ; N(Z)="2" ; T(Z)=""    ; * Transaction Code
+      Z+=1 ; F(Z)="INDEST.R" ; N(Z)="1" ; T(Z)=""  ; * Operation resulting from Client's Complaint
+      Z+=1 ; F(Z)="MONTANTE.1" ; N(Z)="13" ; T(Z)=""         ; * Amount
+      Z+=1 ; F(Z)="MONT1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TAXACLI.1" ; N(Z)="4" ; T(Z)=""           ; * Customer Rates
+      Z+=1 ; F(Z)="TAX1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="COMEMI.1" ; N(Z)="11" ; T(Z)=""           ; * Commission and Charges
+      Z+=1 ; F(Z)="EMI1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="COMPROP.1" ; N(Z)="11" ; T(Z)=""          ; * Tarifs to SIBS
+      Z+=1 ; F(Z)="PROP1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="MONTANTE.2" ; N(Z)="13" ; T(Z)=""         ; * Amount
+      Z+=1 ; F(Z)="MONT2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TAXACLI.2" ; N(Z)="4" ; T(Z)=""           ; * Customer Rates
+      Z+=1 ; F(Z)="TAX2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TARINT.1" ; N(Z)="3" ; T(Z)=""  ; * Interbanking Charge Code
+      Z+=1 ; F(Z)="COMEMI.2" ; N(Z)="11" ; T(Z)=""           ; * Commission and Charges
+      Z+=1 ; F(Z)="EMI2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TARINT.2" ; N(Z)="3" ; T(Z)=""  ; * Interbanking Charge Code
+      Z+=1 ; F(Z)="COMPROP.2" ; N(Z)="11" ; T(Z)=""          ; * Tarifs to SIBS
+      Z+=1 ; F(Z)="PROP2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="CODMOEDA" ; N(Z)="3" ; T(Z)=""  ; * Currency Code
+      Z+=1 ; F(Z)="TARSIBS" ; N(Z)="3" ; T(Z)=""   ; * SIBS charges to be Totalled by Bank
+      Z+=1 ; F(Z)="CODCOM" ; N(Z)="2" ; T(Z)=""    ; * Commission Code
+*
+*  Fields 21 - 50
+*
+*
+      Z+=1 ; F(Z)="FILLER.1" ; N(Z)=" 70" ; T(Z)=""          ; * Spaces to fill rec length
+      Z+=1 ; F(Z)="APLICPDD.O" ; N(Z)="1" ; T(Z)=""          ; *
+      Z+=1 ; F(Z)="IDLOG.O" ; N(Z)="4" ; T(Z)=""   ; *
+      Z+=1 ; F(Z)="NRLOG.O" ; N(Z)="8" ; T(Z)=""   ; *
+      Z+=1 ; F(Z)="IDOCUMENT" ; N(Z)="10" ; T(Z)=""          ; * ID of support docs from SIBS to Bank
+      Z+=1 ; F(Z)="CONTANIB" ; N(Z)="15" ; T(Z)=""           ; *
+      Z+=1 ; F(Z)="CDNIB" ; N(Z)="2" ; T(Z)=""     ; * NID Id of Receiving Bank
+      Z+=1 ; F(Z)="IDCOMEMP" ; N(Z)="7" ; T(Z)=""  ; * ID of Comm Agent/Company
+      Z+=1 ; F(Z)="IDEST" ; N(Z)="4" ; T(Z)=""     ; * Bank's Client Identifier
+      Z+=1 ; F(Z)="TOTOPER" ; N(Z)="5" ; T(Z)=""   ; * Number of Batches received
+      Z+=1 ; F(Z)="COMREP.1" ; N(Z)="11" ; T(Z)=""           ; * Commission by Merchant
+      Z+=1 ; F(Z)="REP1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="COMMB.1" ; N(Z)="11" ; T(Z)=""  ; * Charge to POS owner for no of transactions on POS
+      Z+=1 ; F(Z)="MB1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="COMREP.2" ; N(Z)="11" ; T(Z)=""
+      Z+=1 ; F(Z)="REP2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="COMMB.2" ; N(Z)="11" ; T(Z)=""
+      Z+=1 ; F(Z)="MB2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TOTCLI.1" ; N(Z)="13" ; T(Z)=""           ; * Total Amt to post in Merchant's Account
+      Z+=1 ; F(Z)="TCLI1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="VALCOM.1" ; N(Z)="13" ; T(Z)=""           ; * Total Vat / Fee Amt / Total to post in Bank's revenues/costs
+      Z+=1 ; F(Z)="VCOM1.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TOTCLI.2" ; N(Z)="13" ; T(Z)=""
+      Z+=1 ; F(Z)="TCLI2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="VALCOM.2" ; N(Z)="13" ; T(Z)=""
+      Z+=1 ; F(Z)="VCOM2.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="TARSIBS.2" ; N(Z)="3" ; T(Z) =""          ; * Bank's Charge Code
+      Z+=1 ; F(Z)="NUMOPTARS" ; N(Z)="3" ; T(Z)=""           ; * Code for activity costs to be paid to SIBS for comms
+      Z+=1 ; F(Z)="OPERTAR.1" ; N(Z)="04" ; T(Z)=""          ; *
+      Z+=1 ; F(Z)="OPERTAR.2" ; N(Z)="04" ; T(Z)=""          ; *
+*
+*  Fields 51 - 80
+*
+*
+      Z+=1 ; F(Z)="ZIB" ; N(Z)="8" ; T(Z)=""       ; * Eurocheques abroad
+      Z+=1 ; F(Z)="NCONTA" ; N(Z)="11" ; T(Z)=""   ; *
+      Z+=1 ; F(Z)="NCHQ" ; N(Z)="10" ; T(Z)=""     ; *
+      Z+=1 ; F(Z)="TIPCHQ" ; N(Z)="2" ; T(Z)=""    ; *
+      Z+=1 ; F(Z)="REFDOC" ; N(Z)="13" ; T(Z)=""   ; *
+      Z+=1 ; F(Z)="CAMBIO" ; N(Z)="9" ; T(Z)=""    ; * Exchange Rate of Fgn CCY
+      Z+=1 ; F(Z)="IMPORTOP" ; N(Z)="11" ; T(Z)=""           ; *
+      Z+=1 ; F(Z)="VALTOTAL" ; N(Z)="11" ; T(Z)=""           ; *
+      Z+=1 ; F(Z)="IMPOSTVM" ; N(Z)="9" ; T(Z)=""  ; *
+      Z+=1 ; F(Z)="CAMBIOCLI" ; N(Z)="9" ; T(Z)=""           ; * Optional Exchange Rate
+      Z+=1 ; F(Z)="IMPORTCLI" ; N(Z)="13" ; T(Z)=""          ; *
+      Z+=1 ; F(Z)="IMPCLI.SIGN" ; N(Z)="1" ; T(Z)<1>="" ; T(Z)<2>="C_D"
+      Z+=1 ; F(Z)="SISTEMA" ; N(Z)="1" ; T(Z)=""   ; * Range 1-8 Cheque Tran Code
+      Z+=1 ; F(Z)="SISTPAG" ; N(Z)="1" ; T(Z)=""   ; * System Code
+      Z+=1 ; F(Z)="IDPERSP" ; N(Z)="3" ; T(Z)=""   ; * Code for Payment system period
+      Z+=1 ; F(Z)="IDREMESSA" ; N(Z)="8" ; T(Z)=""           ; * Internal ID of Cheques delivered
+      Z+=1 ; F(Z)="AV.CUTOFF" ; N(Z)="1" ; T(Z)=""           ; * 1=Informative 2=Accounting
+      Z+=1 ; F(Z)="IDCC" ; N(Z)="10" ; T(Z)=""     ; *
+      Z+=1 ; F(Z)="DATAVALOR" ; N(Z)="8" ; T(Z)=""           ; * Val Date/ Chq clearance Date
+      Z+=1 ; F(Z)="VMOEDA" ; N(Z)="11" ; T(Z)=""   ; *
+*
+*  Fields 81 - 100
+*
+*
+      Z+=1 ; F(Z)="VMOEDATX" ; N(Z)="11" ; T(Z)=""           ; *
+      Z+=1 ; F(Z)="TOTIMPVM" ; N(Z)="9" ; T(Z)=""  ; * Comm on sale of FGN CCY
+      Z+=1 ; F(Z)="BPAGAPOIO" ; N(Z)="1" ; T(Z)=""           ; *
+      Z+=1 ; F(Z)="TIPMOV" ; N(Z)="4" ; T(Z)=""    ; * Code ID of fincl trans
+      Z+=1 ; F(Z)="TARCLIPMB" ; N(Z)="2" ; T(Z)=""           ; * Client PMB Pricing
+      Z+=1 ; F(Z)="FICH" ; N(Z)="4" ; T(Z)=""      ; * File ID EDST
+      Z+=1 ; F(Z)="IDFICH" ; N(Z)="11" ; T(Z)=""   ; * Date and File SEQ No
+      Z+=1 ; F(Z)="NUMOCORR" ; N(Z)="2" ; T(Z)=""  ; * No of occurences for 2 fields
+      Z+=1 ; F(Z)="RESERVED.5" ; N(Z)="35" ; T(Z)<3>='NOINPUT'
+      Z+=1 ; F(Z)="RESERVED.4" ; N(Z)="35" ; T(Z)<3>='NOINPUT'
+      Z+=1 ; F(Z)="RESERVED.3" ; N(Z)="35" ; T(Z)<3>='NOINPUT'
+      Z+=1 ; F(Z)="RESERVED.2" ; N(Z)="35" ; T(Z)<3>='NOINPUT'
+      Z+=1 ; F(Z)="RESERVED.1" ; N(Z)="35" ; T(Z)<3>='NOINPUT'
+      V = Z + 9 ; PREFIX = "GIC.EDST"
+*
+      RETURN
+*******************************************************************
+INITIALISE:
+*
+      RETURN
+*******************************************************************
+CHECK.FUNCTION:
+*
+      RETURN
+*******************************************************************
+CHECK.ID:
+*
+      RETURN
+*******************************************************************
+CHECK.RECORD:
+*
+      RETURN
+*******************************************************************
+PROCESS.DISPLAY:
+*
+      RETURN
+*******************************************************************
+CHECK.FIELDS:
+*
+      RETURN
+*******************************************************************
+CHECK.DELETE:
+*
+      RETURN
+*******************************************************************
+CHECK.REVERSAL:
+*
+      RETURN
+*******************************************************************
+CROSS.VALIDATION:
+*
+      RETURN
+*******************************************************************
+BEFORE.UNAU.WRITE:
+*
+      RETURN
+*******************************************************************
+AFTER.UNAU.WRITE:
+*
+      RETURN
+*******************************************************************
+AUTH.CROSS.VALIDATION:
+*
+      RETURN
+*******************************************************************
+BEFORE.AUTH.WRITE:
+*
+      RETURN
+*******************************************************************
+AFTER.AUTH.WRITE:
+*
+      RETURN
+*******************************************************************
+   END

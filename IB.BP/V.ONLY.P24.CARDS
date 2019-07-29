@@ -1,0 +1,37 @@
+    SUBROUTINE V.ONLY.P24.CARDS
+*
+*********************************************************************
+* This PGM only allows P24 cards to be used by the
+*********************************************************************
+* Developed By  : Priti Carsane
+* First Release : 12/11/2014
+* Modified Date:
+
+*********************************************************************
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+*
+
+*********************************************************************
+*
+    GOSUB INITIALISE
+
+*
+    RETURN
+*
+*********************************************************************
+INITIALISE:
+***********
+*
+
+*
+    YR.ISS.ID = ID.NEW
+    IF ID.NEW[0,3] EQ 'P24' THEN
+
+    END ELSE
+        E = 'APENAS CARTOES DO P24!'
+        ETEXT = 'APENAS CARTOES DO P24!'
+        CALL STORE.END.ERROR
+    END
+END

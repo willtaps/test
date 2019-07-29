@@ -1,0 +1,101 @@
+    SUBROUTINE V.IB.CARD.ACTIVATE
+*
+*********************************************************************
+* This PGM will activate the newly issued card (ONLY P24) to be used by the    *
+* customer. By changing the SB.CARD.STATUE Indicator to 0, this field   *
+* will allow the Bank to monitor the progress of the Card during the*
+* various stages of issuing.                                        *
+*********************************************************************
+* Developed By  : Priti Carsane
+* First Release : 18/09/2014
+* Modified Date: 29/10/2014
+
+*********************************************************************
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.USER
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.DATES
+*
+*********************************************************************
+*
+    GOSUB INITIALISE
+
+*
+    RETURN
+*
+*********************************************************************
+INITIALISE:
+***********
+*
+*
+    YF.DATES = 'F.DATES'
+    F.DATES = ''
+    CALL OPF(YF.DATES, F.DATES)
+    DATE.TODAY = R.DATES(EB.DAT.TODAY)
+
+    COMP.ID = ID.COMPANY
+
+    YR.ISS.ID = ID.NEW
+    IF ID.NEW[0,3] EQ 'P24' THEN
+        GOSUB PROCESS
+    END ELSE
+        E = 'ACTIVACAO PARA APENAS CARTOES DO P24!'
+        *CALL STORE.END.ERROR
+    END
+
+    RETURN
+
+*********************************************************************
+PROCESS:
+********
+*
+    ETEXT = ''
+*
+    CALL DBR('COMPANY':FM:EB.COM.MNEMONIC,COMP.ID,YR.MNEMONIC)
+    YMNE = YR.MNEMONIC
+*
+    YF.CARD.ISSUE = 'F':YMNE:'.CARD.ISSUE'
+    F.CARD.ISSUE = ''
+    CALL OPF(YF.CARD.ISSUE,F.CARD.ISSUE)
+    YR.ISS.REC = ''
+*
+    CALL F.READ(YF.CARD.ISSUE,YR.ISS.ID,YR.ISS.REC,F.CARD.ISSUE,ER)
+    IF ER THEN
+        ETEXT = 'ERROR READING CARD.ISSUE FILE'
+        E = ETEXT
+        CALL STORE.END.ERROR
+        RETURN
+    END
+*
+
+    VSTATUS = YR.ISS.REC<CARD.IS.CARD.STATUS>
+    IF VSTATUS EQ '93' THEN
+        ETEXT = " Card Status EQUAL 93"
+        AF = CARD.IS.LOCAL.REF
+        AV = 39
+        E = ETEXT
+        CALL STORE.END.ERROR
+        RETURN
+    END ELSE
+*V$STATUS = YR.ISS.REC<CARD.IS.LOCAL.REF,1>
+*IF V$STATUS NE '4' THEN
+* ETEXT = " Card has not been handed to Customer yet"
+* AF = CARD.IS.LOCAL.REF
+*AV = 39
+* E = ETEXT
+*CALL STORE.END.ERROR
+*RETURN
+*END ELSE
+        R.NEW(CARD.IS.LOCAL.REF)<1,1> = '0'
+        R.NEW(CARD.IS.LOCAL.REF)<1,40> = DATE.TODAY
+        R.NEW(CARD.IS.LOCAL.REF)<1,41> = DATE.TODAY
+        R.NEW(CARD.IS.LOCAL.REF)<1,67> = "NO"
+    END
+*END
+    RETURN
+*
+END

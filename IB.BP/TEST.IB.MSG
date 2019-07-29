@@ -1,0 +1,169 @@
+    PROGRAM TEST.IB.MSG
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+    PHNO = 1
+
+    TTYPE = "ANSI-COLOUR"
+
+    CALL SB.INIT.CONN("IBATM.TEXT")
+
+    CALL LOAD.COMPANY("MZ0010101")
+
+* Account Balance
+    YMSG = "115000133140044020520140604083552943A0003000000000000195022014060408355233401166Hospital Central de MaputMaputo         0001000050847385100500022900101001385710160911030000000000000C0000000C00000000000C00000000000C0000000000000D0000000C00000000000C00000000000C943000000000000000115000133140044020520140604083552943A0003000000000000195022014060408355233401166Hospital Central de MaputMaputo         0001000050847385100500022900101001385710160911030000000000000C0000000C00000000000C00000000000C0000000000000D0000000C00000000000C00000000000C943000000000000000|1"
+*
+
+
+    YKEY = DATE() : TIME() : RND(1000)
+    YKEY = YKEY[12]
+
+    YMSG = "110000145520137927920150127143914943A0034000000000000215012015012714391427900033Av. De Trabalho N. 1746 RMaputo         0001000050847222500610069000112015160210072511010000000000000C0000000C00000000000C00000000000C0000000100000D0000000C00000000000C00000000000C943000000000000000000000000000000|1"
+    YMSG = "110000135520137927920150127143914943A0034000000000000215012015012714391427900033Av. De Trabalho N. 1746 RMaputo         0001000050847222500610069000112015160210072511010000000000000C0000000C00000000000C00000000000C0000000000000D0000000C00000000000C00000000000C943000000000000000000000000000000|1"
+    YMSG = "110000136160119671920141222125456943A0003000000000000124012014122212285700904512Av. Marginal, n? 9519    Maputo         0001000050847222500800017900202059447010010711010000000000000C0000000C00000000000C00000000000C0000000200000D0000000C00000000000C00000000000C943000000000000000000000000000000|1"
+
+    YMSG = "115000123330000007720190524155920943A0003000000000000101012019052415592006800237Urbanizacao da Quinta NovCastelo Branco 0001000050850487200530730400104026226410010211030000000000000C0000000C00000000000C00000000000C0000000000000D0000000C00000000000C00000000000C943000000000000000|1"
+    YMSG = "115000352462138897820190503002405943M0000000000008475876132019050300240500000000                                        0000000050847222501541460000105030217610010011030000000000000C0000000C00000000000C00000000000C0000000000000D0000000C00000000000C00000000000C943010503021761001|1"
+ *   YMSG = "110000251393228753820190503002029943B0008001053100000710222019050300202980800477BAR PUB MP3, LDA         Cidade de Nampu0301581250847222501930674900305066996810047311100000000000000C0000000C00000000000C00000000000C0000000040000D0000000C00000000000C00000000000C943000013000000000100000000000000|1"
+
+
+RUN:
+    YMSG = YMSG[8,12] : YMSG
+
+    CALL OFS.BULK.MANAGER(YMSG, YRES, YERR)
+
+    CRT YRES
+
+    STOP
+
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    Y1 = TIME()
+    SLEEP 1
+    STOP
+
+
+
+* Reversal
+
+    YMSG = '<Message><Field><Tag>1</Tag><Value>2161</Value></Field><Field><Tag>2</Tag><Value>00</Value></Field><Field><Tag>1709</Tag><Value>01</Value></Field><Field><Tag>320</Tag><Value>0005</Value></Field><Field><Tag>117</Tag><Value>00000298</Value></Field><Field><Tag>4</Tag><Value>20101129160646</Value></Field><Field><Tag>699</Tag><Value>001</Value></Field><Field><Tag>233</Tag><Value>943</Value></Field><Field><Tag>3</Tag><Value>B</Value></Field><Field><Tag>241</Tag><Value>0003</Value></Field><Field><Tag>6</Tag><Value>0000010101</Value></Field><Field><Tag>2354</Tag><Value>2</Value></Field><Field><Tag>105</Tag><Value>20101129160429</Value></Field><Field><Tag>7</Tag><Value>Aeroporto  Maputo                       </Value></Field><Field><Tag>157</Tag><Value>6011</Value></Field><Field><Tag>226</Tag><Value>508</Value></Field><Field><Tag>68</Tag><Value>0000001</Value></Field><Field><Tag>118</Tag><Value>002</Value></Field><Field><Tag>323</Tag><Value>00014</Value></Field><Field><Tag>158</Tag><Value>0001</Value></Field><Field><Tag>2324</Tag><Value>16</Value></Field><Field><Tag>2325</Tag><Value>5054370010100726   </Value></Field><Field><Tag>126</Tag><Value>2012</Value></Field><Field><Tag>119</Tag><Value>03</Value></Field><Field><Tag>129</Tag><Value>1</Value></Field><Field><Tag>1716</Tag><Value>000</Value></Field><Field><Tag>5</Tag><Value>11</Value></Field><Field><Tag>132</Tag><Value>010101495061006</Value></Field><Field><Tag>2326</Tag><Value>00000300000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2327</Tag><Value>000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2336</Tag><Value>0000</Value></Field><Field><Tag>2337</Tag><Value>00</Value></Field><Field><Tag>222</Tag><Value>C</Value></Field><Field><Tag>233</Tag><Value>508</Value></Field><Field><Tag>236</Tag><Value>000000000</Value></Field><Field><Tag>237</Tag><Value>00000000000</Value></Field><Field><Tag>238</Tag><Value>00000000000</Value></Field><Field><Tag>65</Tag><Value>00000000000</Value></Field><Field><Tag>70</Tag><Value>000000000000</Value></Field><Field><Tag>71</Tag><Value>00</Value></Field><Field><Tag>14</Tag><Value>01011226300508</Value></Field><Field><Tag>1747</Tag><Value>01</Value></Field><Field><Tag>10</Tag><Value>0316</Value></Field><Field><Tag>11</Tag><Value>00008235</Value></Field><Field><Tag>9</Tag><Value>20121212170850</Value></Field><Field><Tag>15</Tag><Value>1</Value></Field></Message>'
+
+    CALL IB.ATM.COMMON.LOAD.SB
+
+    CALL IB.ATM.MSG.IN( YMSG)
+
+    CALL IB.ATM.MSG.OUT ( YMSG)
+
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    Y1 = TIME()
+    SLEEP 1
+
+
+
+* Balance 1
+
+    Y1 = TIME()
+
+    YMSG = '<Message><Field><Tag>1</Tag><Value>1162</Value></Field><Field><Tag>2</Tag><Value>00</Value></Field><Field><Tag>1709</Tag><Value>01</Value></Field><Field><Tag>320</Tag><Value>0315</Value></Field><Field><Tag>117</Tag><Value>00001321</Value></Field><Field><Tag>4</Tag><Value>20120817135038</Value></Field><Field><Tag>699</Tag><Value>003</Value></Field><Field><Tag>233</Tag><Value>943</Value></Field><Field><Tag>3</Tag><Value>A</Value></Field><Field><Tag>241</Tag><Value>0001</Value></Field><Field><Tag>6</Tag><Value>0000000113</Value></Field><Field><Tag>2354</Tag><Value>2</Value></Field><Field><Tag>105</Tag><Value>20120817135038</Value></Field><Field><Tag>7</Tag><Value>Maputo Cidade            Maputo         </Value></Field><Field><Tag>157</Tag><Value>6011</Value></Field><Field><Tag>226</Tag><Value>508</Value></Field><Field><Tag>68</Tag><Value>0000001</Value></Field><Field><Tag>118</Tag><Value>005</Value></Field><Field><Tag>323</Tag><Value>00113</Value></Field><Field><Tag>158</Tag><Value>0001</Value></Field><Field><Tag>2324</Tag><Value>16</Value></Field><Field><Tag>2325</Tag><Value>5054370010100635   </Value></Field><Field><Tag>126</Tag><Value>1609</Value></Field><Field><Tag>119</Tag><Value>06</Value></Field><Field><Tag>129</Tag><Value>1</Value></Field><Field><Tag>1716</Tag><Value>000</Value></Field><Field><Tag>5</Tag><Value>11</Value></Field><Field><Tag>132</Tag><Value>010100137211016</Value></Field><Field><Tag>2326</Tag><Value>00000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2327</Tag><Value>000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2336</Tag><Value>0017</Value></Field><Field><Tag>2337</Tag><Value>00</Value></Field><Field><Tag>132</Tag><Value>010100137211008</Value></Field></Message>'
+
+
+    CALL IB.ATM.COMMON.LOAD.SB
+
+    CALL IB.ATM.MSG.IN( YMSG)
+
+    CALL IB.ATM.MSG.OUT ( YMSG)
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    Y1 = TIME()
+    SLEEP 1
+
+* Balance 1
+
+    Y1 = TIME()
+
+    YMSG = '<Message><Field><Tag>1</Tag><Value>1161</Value></Field><Field><Tag>2</Tag><Value>00</Value></Field><Field><Tag>1709</Tag><Value>01</Value></Field><Field><Tag>320</Tag><Value>0293</Value></Field><Field><Tag>117</Tag><Value>00000003</Value></Field><Field><Tag>4</Tag><Value>20110517150634</Value></Field><Field><Tag>699</Tag><Value>003</Value></Field><Field><Tag>233</Tag><Value>943</Value></Field><Field><Tag>3</Tag><Value>A</Value></Field><Field><Tag>241</Tag><Value>0008</Value></Field><Field><Tag>6</Tag><Value>0000000101</Value></Field><Field><Tag>2354</Tag><Value>2</Value></Field><Field><Tag>105</Tag><Value>20110517150632</Value></Field><Field><Tag>7</Tag><Value>Aeroporto Maputo         Maputo         </Value></Field><Field><Tag>157</Tag><Value>6011</Value></Field><Field><Tag>226</Tag><Value>508</Value></Field><Field><Tag>68</Tag><Value>0000008</Value></Field><Field><Tag>118</Tag><Value>064</Value></Field><Field><Tag>323</Tag><Value>00024</Value></Field><Field><Tag>158</Tag><Value>0001</Value></Field><Field><Tag>2324</Tag><Value>16</Value></Field><Field><Tag>2325</Tag><Value>5048720000012191</Value></Field><Field><Tag>126</Tag><Value>1612</Value></Field><Field><Tag>119</Tag><Value>27</Value></Field><Field><Tag>129</Tag><Value>1</Value></Field><Field><Tag>1716</Tag><Value>001</Value></Field><Field><Tag>5</Tag><Value>41</Value></Field><Field><Tag>132</Tag><Value>010100137211022</Value></Field><Field><Tag>2326</Tag><Value>00000300000</Value></Field><Field><Tag>318</Tag><Value>D</Value></Field><Field><Tag>2327</Tag><Value>000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2336</Tag><Value>0000</Value></Field></Message>'
+
+    CALL IB.ATM.COMMON.LOAD.SB
+
+    CALL IB.ATM.MSG.IN( YMSG)
+
+    CALL IB.ATM.MSG.OUT ( YMSG)
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    Y1 = TIME()
+    SLEEP 1
+* Balance 1
+
+    Y1 = TIME()
+
+    YMSG = '<Message><Field><Tag>1</Tag><Value>1161</Value></Field><Field><Tag>2</Tag><Value>00</Value></Field><Field><Tag>1709</Tag><Value>01</Value></Field><Field><Tag>320</Tag><Value>0293</Value></Field><Field><Tag>117</Tag><Value>00000003</Value></Field><Field><Tag>4</Tag><Value>20110517150634</Value></Field><Field><Tag>699</Tag><Value>003</Value></Field><Field><Tag>233</Tag><Value>943</Value></Field><Field><Tag>3</Tag><Value>A</Value></Field><Field><Tag>241</Tag><Value>0008</Value></Field><Field><Tag>6</Tag><Value>0000000101</Value></Field><Field><Tag>2354</Tag><Value>2</Value></Field><Field><Tag>105</Tag><Value>20110517150632</Value></Field><Field><Tag>7</Tag><Value>Aeroporto Maputo         Maputo         </Value></Field><Field><Tag>157</Tag><Value>6011</Value></Field><Field><Tag>226</Tag><Value>508</Value></Field><Field><Tag>68</Tag><Value>0000008</Value></Field><Field><Tag>118</Tag><Value>064</Value></Field><Field><Tag>323</Tag><Value>00024</Value></Field><Field><Tag>158</Tag><Value>0001</Value></Field><Field><Tag>2324</Tag><Value>16</Value></Field><Field><Tag>2325</Tag><Value>5048720000012191</Value></Field><Field><Tag>126</Tag><Value>1612</Value></Field><Field><Tag>119</Tag><Value>27</Value></Field><Field><Tag>129</Tag><Value>1</Value></Field><Field><Tag>1716</Tag><Value>001</Value></Field><Field><Tag>5</Tag><Value>41</Value></Field><Field><Tag>132</Tag><Value>010100137211024</Value></Field><Field><Tag>2326</Tag><Value>00000300000</Value></Field><Field><Tag>318</Tag><Value>D</Value></Field><Field><Tag>2327</Tag><Value>000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2336</Tag><Value>0000</Value></Field></Message>'
+
+    CALL IB.ATM.COMMON.LOAD.SB
+
+    CALL IB.ATM.MSG.IN( YMSG)
+
+    CALL IB.ATM.MSG.OUT ( YMSG)
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    Y1 = TIME()
+    SLEEP 1
+
+* Balance 2
+
+    Y1 = TIME()
+
+    YMSG = '<Message><Field><Tag>1</Tag><Value>1161</Value></Field><Field><Tag>2</Tag><Value>00</Value></Field><Field><Tag>1709</Tag><Value>01</Value></Field><Field><Tag>320</Tag><Value>0293</Value></Field><Field><Tag>117</Tag><Value>00000003</Value></Field><Field><Tag>4</Tag><Value>20110517150634</Value></Field><Field><Tag>699</Tag><Value>003</Value></Field><Field><Tag>233</Tag><Value>943</Value></Field><Field><Tag>3</Tag><Value>A</Value></Field><Field><Tag>241</Tag><Value>0008</Value></Field><Field><Tag>6</Tag><Value>0000000101</Value></Field><Field><Tag>2354</Tag><Value>2</Value></Field><Field><Tag>105</Tag><Value>20110517150632</Value></Field><Field><Tag>7</Tag><Value>Aeroporto Maputo         Maputo         </Value></Field><Field><Tag>157</Tag><Value>6011</Value></Field><Field><Tag>226</Tag><Value>508</Value></Field><Field><Tag>68</Tag><Value>0000008</Value></Field><Field><Tag>118</Tag><Value>064</Value></Field><Field><Tag>323</Tag><Value>00024</Value></Field><Field><Tag>158</Tag><Value>0001</Value></Field><Field><Tag>2324</Tag><Value>16</Value></Field><Field><Tag>2325</Tag><Value>4069400101001461</Value></Field><Field><Tag>126</Tag><Value>1612</Value></Field><Field><Tag>119</Tag><Value>27</Value></Field><Field><Tag>129</Tag><Value>1</Value></Field><Field><Tag>1716</Tag><Value>001</Value></Field><Field><Tag>5</Tag><Value>41</Value></Field><Field><Tag>132</Tag><Value>010100137211016</Value></Field><Field><Tag>2326</Tag><Value>00000300000</Value></Field><Field><Tag>318</Tag><Value>D</Value></Field><Field><Tag>2327</Tag><Value>000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2336</Tag><Value>0000</Value></Field></Message>'
+
+    CALL IB.ATM.COMMON.LOAD.SB
+
+    CALL IB.ATM.MSG.IN( YMSG)
+
+    CALL IB.ATM.MSG.OUT ( YMSG)
+
+
+
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    Y1 = TIME()
+    SLEEP 1
+
+
+
+* Ministatement
+
+    YMSG = '<Message><Field><Tag>1</Tag><Value>1161</Value></Field><Field><Tag>2</Tag><Value>00</Value></Field><Field><Tag>1709</Tag><Value>01</Value></Field><Field><Tag>320</Tag><Value>0293</Value></Field><Field><Tag>117</Tag><Value>00000003</Value></Field><Field><Tag>4</Tag><Value>20110517150634</Value></Field><Field><Tag>699</Tag><Value>004</Value></Field><Field><Tag>233</Tag><Value>943</Value></Field><Field><Tag>3</Tag><Value>A</Value></Field><Field><Tag>241</Tag><Value>0008</Value></Field><Field><Tag>6</Tag><Value>0000000101</Value></Field><Field><Tag>2354</Tag><Value>2</Value></Field><Field><Tag>105</Tag><Value>20110517150632</Value></Field><Field><Tag>7</Tag><Value>Aeroporto Maputo         Maputo         </Value></Field><Field><Tag>157</Tag><Value>6011</Value></Field><Field><Tag>226</Tag><Value>508</Value></Field><Field><Tag>68</Tag><Value>0000008</Value></Field><Field><Tag>118</Tag><Value>064</Value></Field><Field><Tag>323</Tag><Value>00024</Value></Field><Field><Tag>158</Tag><Value>0001</Value></Field><Field><Tag>2324</Tag><Value>16</Value></Field><Field><Tag>2325</Tag><Value>5048720000012191</Value></Field><Field><Tag>126</Tag><Value>1612</Value></Field><Field><Tag>119</Tag><Value>27</Value></Field><Field><Tag>129</Tag><Value>1</Value></Field><Field><Tag>1716</Tag><Value>001</Value></Field><Field><Tag>5</Tag><Value>41</Value></Field><Field><Tag>132</Tag><Value>010100137211024</Value></Field><Field><Tag>2326</Tag><Value>00000300000</Value></Field><Field><Tag>318</Tag><Value>D</Value></Field><Field><Tag>2327</Tag><Value>000000000</Value></Field><Field><Tag>318</Tag><Value>C</Value></Field><Field><Tag>2336</Tag><Value>0000</Value></Field></Message>'
+
+    CALL IB.ATM.COMMON.LOAD.SB
+
+    CALL IB.ATM.MSG.IN( YMSG)
+
+    CALL IB.ATM.MSG.OUT ( YMSG)
+
+    Y2 = TIME()
+    CRT "ELAPSED " : OCONV(ICONV(Y2-Y1,"MTS"),"MTS")
+    CRT
+    CRT YMSG
+    CRT
+    STOP
+
+END

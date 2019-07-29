@@ -1,0 +1,364 @@
+    SUBROUTINE SB.IB.EXTRACT.ECBI
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.COMPANY
+    $INSERT IB.BP I_F.SB.PARAMETRO.IB
+    $INSERT IB.BP I_F.SB.HEADER.IB
+
+
+
+
+*--- Abertura de ficheiros e inicializacao de variaveis
+
+    FN.BSTM.DAT = "BSTM.DAT"
+    FV.BSTM.DAT = ""
+    CALL OPF(FN.BSTM.DAT,FV.BSTM.DAT)
+
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+    FN.SB.HEADER.IB = 'F.SB.HEADER.IB'
+    FV.SB.HEADER.IB = ''
+    CALL OPF(FN.SB.HEADER.IB,FV.SB.HEADER.IB)
+
+    FN.SB.PARAMETRO.IB = 'F.SB.PARAMETRO.IB'
+    FV.SB.PARAMETRO.IB = ''
+    CALL OPF(FN.SB.PARAMETRO.IB,FV.SB.PARAMETRO.IB)
+
+
+    SEQ.REG.EMISS = 0 ; RTH = '' ; RTD = '' ; RTT = '' ; RTP = '' ; REGISTO = ''
+
+*--- Seleccao dos parametros de cartoes -------------*
+
+    PARA.LIST = '' ; PARA.NO = '' ; PARA.ERR = ''
+    SEL.PARA = 'SELECT ':FN.SB.PARAMETRO.IB
+    CALL EB.READLIST(SEL.PARA,PARA.LIST,'',PARA.NO,PARA.ERR)
+    FOR PARAM = 1 TO PARA.NO
+        PARAM.ID = PARA.LIST<PARAM>
+
+*--- Seleccao das companhias para extraccao dos cartoes requisitados
+
+        CO.LIST = '' ; CO.NO = '' ; CO.ERR = ''
+        SEL.CO = 'SELECT ':FN.COMPANY:' WITH CONSOLIDATION.MARK EQ "N" SAVING MNEMONIC'
+        CALL EB.READLIST(SEL.CO,CO.LIST,'',CO.NO,CO.ERR)
+        FOR I = 1 TO CO.NO
+            MNE = CO.LIST<I>
+
+*--- Inico do tratamento da companhia
+
+            FN.CARD.ISSUE = 'F':MNE:'.CARD.ISSUE'
+            FV.CARD.ISSUE = ''
+            CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+*--- Seleccao dos registos a extractar da companhia
+            CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+            SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH @ID LIKE P24... AND PARAMETER EQ ':PARAM.ID:' AND CARD.STATUS NE 93'
+            SEL.CARD := ' AND REQUISIT.STATUS EQ "NO"'
+            CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+            PRINT CARD.LIST:"":CARD.ERR
+            IF CARD.NO GT 0 THEN
+
+                FOR II = 1 TO CARD.NO
+                    CARTAO.ID = CARD.LIST<II>
+
+                    SEQ.REG.EMISS +=1
+                    SEQ.REG.EMISS = FMT(SEQ.REG.EMISS,"6'0'R")
+
+*---- Leitura do registo a partir da tabela CARD.ISSUE e SET da variaveis
+
+                    R.CARTAO = ''
+                    READ R.CARTAO FROM FV.CARD.ISSUE,CARTAO.ID ELSE R.CARTAO = ''
+
+
+*--- Preaparacao do TIPO registo de detalhe DETALHE
+
+                    RTD.SEQPAN = R.CARTAO<CARD.IS.LOCAL.REF, 2>
+                    RTD.VERCAR = R.CARTAO<CARD.IS.LOCAL.REF, 3>
+                    RTD.RESTCAR = R.CARTAO<CARD.IS.LOCAL.REF, 4>
+                    RTD.EXPDATE = R.CARTAO<CARD.IS.EXPIRY.DATE>
+                    RTD.EXPDATE = RTD.EXPDATE[3,2]:RTD.EXPDATE[5,2]
+                    RTD.CPD = R.CARTAO<CARD.IS.LOCAL.REF, 6>
+                    RTD.DURPER = R.CARTAO<CARD.IS.LOCAL.REF, 7>
+                    RTD.MONTP3 = R.CARTAO<CARD.IS.LOCAL.REF, 8>
+                    RTD.PLAFSALD = R.CARTAO<CARD.IS.LOCAL.REF, 9>
+                    RTD.IDENTCS = R.CARTAO<CARD.IS.LOCAL.REF,10>
+                    RTD.NUMCON = R.CARTAO<CARD.IS.LOCAL.REF,11>
+                    RTD.NUMCAR = CARTAO.ID[13,7]
+
+
+*--- Alteracao do comprimento da conta, para acomodar requisito da InterBancos
+
+                    RTD.CONTA1 = R.CARTAO<CARD.IS.LOCAL.REF,12>
+                    IF RTD.CONTA1 THEN
+                        RTD.CONTA1 = "0":RTD.CONTA1[1,3]:"0":RTD.CONTA1[4,10]
+                    END
+
+                    RTD.TCRU1 = R.CARTAO<CARD.IS.LOCAL.REF,13>
+                    RTD.CODAGE1 = R.CARTAO<CARD.IS.LOCAL.REF,14>
+                    RTD.LIMES1 = R.CARTAO<CARD.IS.LOCAL.REF,15>
+                    RTD.DIA1 = R.CARTAO<CARD.IS.LOCAL.REF,16>
+
+                    RTD.CONTA2 = R.CARTAO<CARD.IS.LOCAL.REF,17>
+                    IF RTD.CONTA2 THEN
+                        RTD.CONTA2 = "0":RTD.CONTA2[1,3]:"0":RTD.CONTA2[4,10]
+                    END ELSE
+                        RTD.CONTA2 = "000000000000000"
+                    END
+
+                    RTD.TCRU2 = R.CARTAO<CARD.IS.LOCAL.REF,18>
+                    RTD.CODAGE2 = R.CARTAO<CARD.IS.LOCAL.REF,19>
+                    RTD.LIMES2 = R.CARTAO<CARD.IS.LOCAL.REF,21>
+                    RTD.DIA2 = R.CARTAO<CARD.IS.LOCAL.REF,22>
+
+                    RTD.EMBOSSP = R.CARTAO<CARD.IS.LOCAL.REF,26>
+                    IF LEN(RTD.EMBOSSP) LT 23 THEN
+                        YLEN = 23-LEN(RTD.EMBOSSP)
+                        RTD.EMBOSSP = RTD.EMBOSSP:SPACE(YLEN)
+
+                    END
+                    RTD.PNOMECLI=''
+
+                    RTD.PNOMECLI = R.CARTAO<CARD.IS.LOCAL.REF,46>
+                    IF RTD.PNOMECLI EQ '' THEN
+
+                        RTD.NOMECLI = R.CARTAO<CARD.IS.LOCAL.REF,23>
+                        RTD.NOMECLI2 = TRIM(RTD.NOMECLI, "", "D")
+*--- Escolha apenas da primeira letra do nome e o ultimo nome ---*
+                        RTD.PNOMECLI=''
+                        RTD.LNOMECLI=''
+                        RTD.PNOMECLI= FIELD(RTD.NOMECLI2," ",1)
+                        Y.COUNT=DCOUNT(RTD.NOMECLI2,' ')
+                        RTD.LNOMECLI= FIELD(RTD.NOMECLI2," ",Y.COUNT)
+
+                        IF RTD.LNOMECLI THEN
+                        END ELSE
+                            RTD.LNOMECLI= FIELD(RTD.NOMECLI2," ",Y.COUNT-1)
+                        END
+                    END ELSE
+                        RTD.LNOMECLI = R.CARTAO<CARD.IS.LOCAL.REF,47>
+                    END
+                    RTD.NOMECLI= RTD.PNOMECLI:' ':RTD.LNOMECLI
+****************************************************************
+                    IF LEN(RTD.NOMECLI) LT 27 THEN
+                        YLEN = 27-LEN(RTD.NOMECLI)
+                        RTD.NOMECLI = RTD.NOMECLI:SPACE(YLEN)
+                    END
+
+                    IF LEN(RTD.NOMECLI) GT 27 THEN
+                        RTD.NOMECLI = RTD.EMBOSSP:SPACE(4)
+
+                    END
+
+                    RTD.NOMECLI2 = SPACE(27)      ;* aplicavel se for empresa
+                    RTD.IMAGEM = R.CARTAO<CARD.IS.LOCAL.REF,27>
+                    RTD.IDEXTIT = SPACE(15)
+                    RTD.CARPIN = R.CARTAO<CARD.IS.LOCAL.REF,29>
+
+                    RTD.ENDERCLI = R.CARTAO<CARD.IS.LOCAL.REF,30>
+                    IF RTD.ENDERCLI THEN
+                        IF LEN(RTD.ENDERCLI) GT 40 THEN
+                            RTD.ENDERCLI = RTD.ENDERCLI[1,40]
+                        END
+
+                        IF LEN(RTD.ENDERCLI) LT 40 THEN
+                            YLEN = 40-LEN(RTD.ENDERCLI)
+                            RTD.ENDERCLI = RTD.ENDERCLI:SPACE(YLEN)
+                        END
+
+                    END ELSE
+
+                        RTD.ENDERCLI = SPACE(40)
+
+                    END
+
+                    RTD.CODPOST = R.CARTAO<CARD.IS.LOCAL.REF,33>
+                    IF RTD.CODPOST THEN
+
+                        IF LEN(RTD.CODPOST) LT 35 THEN
+                            YLEN = 35 - LEN(RTD.CODPOST)
+                            RTD.CODPOST = RTD.CODPOST:SPACE(YLEN)
+                        END
+
+                        IF LEN(RTD.CODPOST) GT 35 THEN
+                            RTD.CODPOST = RTD.CODPOST[1,35]
+                        END
+
+                    END ELSE
+
+                        RTD.CODPOST = SPACE(35)
+
+                    END
+
+                    RTD.SEXO = SPACE(1)
+                    RTD.ANONASC = R.CARTAO<CARD.IS.LOCAL.REF,35>
+                    RTD.ACTCLI = SPACE(4)
+                    RTD.NRCONTACR = R.CARTAO<CARD.IS.LOCAL.REF,37>
+                    RTD.TITNTIT = R.CARTAO<CARD.IS.LOCAL.REF,38>
+                    RTD.VIPPRC = R.CARTAO<CARD.IS.LOCAL.REF,44>
+                    RTD.TELECODIG = R.CARTAO<CARD.IS.LOCAL.REF,55>
+                    RTD.NSITCAR = R.CARTAO<CARD.IS.LOCAL.REF,56>
+                    RTD.IDPINBLOCK = SPACE(7)
+                    RTD.TIPEMICAR = R.CARTAO<CARD.IS.LOCAL.REF,58>
+                    RTD.NUMCARANT = R.CARTAO<CARD.IS.LOCAL.REF,59>
+                    RTD.BALCENT = R.CARTAO<CARD.IS.LOCAL.REF,60>[6,4]
+                    RTD.PARAM = R.CARTAO<CARD.IS.LOCAL.REF,62>        ;* Determina o produto associado
+
+                    RTD.LOCCLI = R.CARTAO<CARD.IS.LOCAL.REF,63>
+                    IF RTD.LOCCLI THEN
+
+                        IF LEN(RTD.LOCCLI) LT 30 THEN
+                            YLEN = 30-LEN(RTD.LOCCLI)
+                            RTD.LOCCLI = RTD.LOCCLI:SPACE(YLEN)
+                        END
+
+                        IF LEN(RTD.LOCCLI) GT 30 THEN
+                            RTD.LOCCLI = RTD.LOCCLI[1,30]
+                        END
+
+                    END ELSE
+
+                        RTD.LOCCLI = SPACE(30)
+
+                    END
+
+
+*--- Composicao da string do registo do tipo DETALHE do ficheiro --------*
+
+                    RTD<-1> = '2':RTD.NUMCAR:RTD.SEQPAN:RTD.VERCAR:RTD.RESTCAR:RTD.EXPDATE:RTD.CPD:RTD.DURPER:RTD.MONTP3
+                    RTD := RTD.PLAFSALD:RTD.IDENTCS:RTD.NUMCON:RTD.CONTA1:RTD.TCRU1:RTD.CODAGE1:RTD.LIMES1:RTD.DIA1
+                    RTD := RTD.CONTA2:RTD.TCRU2:RTD.CODAGE2:RTD.LIMES2:RTD.DIA2:RTD.NOMECLI:RTD.NOMECLI2:RTD.EMBOSSP
+                    RTD := RTD.IMAGEM:RTD.IDEXTIT:RTD.CARPIN:RTD.ENDERCLI:RTD.LOCCLI:RTD.CODPOST:RTD.SEXO:RTD.ANONASC
+                    RTD := RTD.ACTCLI:RTD.NRCONTACR:RTD.TITNTIT:RTD.VIPPRC:RTD.TELECODIG:RTD.NSITCAR:RTD.IDPINBLOCK
+                    RTD := RTD.TIPEMICAR:RTD.NUMCARANT:RTD.BALCENT
+
+                    R.CARTAO<CARD.IS.LOCAL.REF,66>= "YES"
+                    R.CARTAO<CARD.IS.LOCAL.REF,73>= TODAY
+                    WRITE R.CARTAO TO FV.CARD.ISSUE,CARTAO.ID
+
+                NEXT II
+
+            END
+
+        NEXT I
+
+*--- Leitura e actuializacao da tabela de sequencia do ficheiro ECBI
+
+        IF RTD THEN
+            R.SEQ = ''
+            READ R.SEQ FROM FV.SB.HEADER.IB,"ECBI" ELSE R.SEQ = ''
+            YIDFICHANT = R.SEQ<IBHDR.IDFICHANT>
+            YIDFICH = R.SEQ<IBHDR.IDFICH>
+
+            YDATAANT = YIDFICHANT[1,8]
+            YDATA = YIDFICH[1,8]
+
+            YSEQANT = YIDFICH[9,3]
+            YSEQANT = FMT(YSEQANT,"3'0'R")
+
+            IF YDATA NE TODAY THEN
+                YSEQACT = "001"
+            END ELSE
+                YSEQACT = YIDFICH[9,3] + 1
+                YSEQACT = FMT(YSEQACT,"3'0'R")
+            END
+
+            YIDFICHANT = R.SEQ<IBHDR.IDFICH>
+            YIDFICH = TODAY:YSEQACT
+
+            R.SEQ<IBHDR.IDFICHANT> = YIDFICHANT
+            R.SEQ<IBHDR.IDFICH> = YIDFICH
+
+            WRITE R.SEQ TO FV.SB.HEADER.IB,"ECBI"
+
+*--- Constituicao registo do tipo HEADER do ficheiro ---------*
+
+            RTH.TIPREG = R.SEQ<IBHDR.TIPREG>
+            RTH.APLIC = R.SEQ<IBHDR.APLIC>
+            RTH.FICH = R.SEQ<IBHDR.FICH>
+            RTH.VERFICH = R.SEQ<IBHDR.VERFICH>
+            RTH.CODBAN = R.SEQ<IBHDR.CODBAN>
+            RTH.CPD = R.SEQ<IBHDR.CPD>
+            RTH.IDFICH = YIDFICH
+            RTH.IDFICHANT = YIDFICHANT
+            RTH.DATAVALOR = R.SEQ<IBHDR.DATAVALOR>
+            RTH.CODMOEDA =  R.SEQ<IBHDR.CODMOEDA>
+
+*--- Composicao da string do registo tipo HEADER do ficheiro
+
+            RTH = RTH.TIPREG:RTH.APLIC:RTH.FICH:RTH.VERFICH:RTH.CODBAN:RTH.CPD
+            RTH := RTH.IDFICH:RTH.IDFICHANT:RTH.DATAVALOR:RTH.CODMOEDA
+
+
+*--- Constituicao do registo do tipo PARAMETRO do ficheiro
+
+            R.PARAM = '' ; PARAM.ERR = ''
+            CALL F.READ(FN.SB.PARAMETRO.IB,RTD.PARAM,R.PARAM,FV.SB.PARAMETRO.IB,PARAM.ERR)
+            RTP.TIPREG = R.PARAM<IBPARAM.TIPREG>
+            RTP.TIPROD = R.PARAM<IBPARAM.TIPPROD>
+            RTP.BIN = R.PARAM<IBPARAM.BIN>
+            RTP.EXBIN = R.PARAM<IBPARAM.EXBIN>
+            RTP.COMBCH = R.PARAM<IBPARAM.COMBCH>
+            RTP.COMCHINT = R.PARAM<IBPARAM.COMCHINT>
+            RTP.DATINI = R.PARAM<IBPARAM.DATINI>
+            RTP.PSEQ = R.PARAM<IBPARAM.PSEQ>
+            RTP.IDENTCS = R.PARAM<IBPARAM.IDENTCS>
+            RTP.CONTRATO = R.PARAM<IBPARAM.CONTRATO>
+            RTP.TARCLIPMB = R.PARAM<IBPARAM.TARCLIPMB>
+            RTP.DIFERIMENTO = R.PARAM<IBPARAM.DIFERIMENTO>
+            RTP.TIPPIN = R.PARAM<IBPARAM.TIPPIN>
+            RTP.SALDINPMB = R.PARAM<IBPARAM.SALDINPMB>
+            RTP.CODMOEDA = R.PARAM<IBPARAM.CODMOEDA>
+            RTP.CODBAN = R.PARAM<IBPARAM.CODBAN>
+
+*--- Composicao da string registo tipo PARAMETRO do ficheiro
+
+            RTP = RTP.TIPREG:RTP.TIPROD:RTP.BIN:RTP.EXBIN:RTP.COMBCH
+            RTP := RTP.COMCHINT:RTP.DATINI:RTP.PSEQ:RTP.IDENTCS
+            RTP := RTP.CONTRATO:RTP.TARCLIPMB:RTP.DIFERIMENTO
+            RTP := RTP.TIPPIN:RTP.SALDINPMB:RTP.CODMOEDA:RTP.CODBAN
+
+
+*--- Constituicao do registo tipo TRAILER do ficheiro
+
+            RTT.TIPREG = "9"
+            SEQ.REG.EMISS = SEQ.REG.EMISS+1
+            SEQ.REG.EMISS = FMT(SEQ.REG.EMISS,"8'0'R")
+            RTT.TOTREG = SEQ.REG.EMISS
+            RTT.TOTDEB = "0000000000000000"
+            RTT.TOTCRED = "0000000000000000"
+
+*--- Composicao da string do resgisto tipo TRAILER do ficheiro
+
+            RTT = RTT.TIPREG:RTT.TOTREG:RTT.TOTDEB:RTT.TOTCRED
+
+
+*--- Cmposicao final do ficheiro ECBI e escrita
+
+            REGISTO = RTH:@FM:RTP:@FM:RTD:@FM:RTT
+*           WRITE REGISTO TO FV.BSTM.DAT,'ECBI'
+            WRITE REGISTO TO FV.BSTM.DAT,PARAM.ID:'-':YIDFICH
+
+*--- Extraccao da data e hora de producao do ficheiro
+
+*           YTIME = OCONV(TIME(),"MTS")
+*           CONVERT ":" TO "" IN YTIME
+
+*           HDF.DATAVALOR = "00":YTIME
+*           HDF.DATAVALOR = TODAY
+*           HDF.FILLER = SPACE(406)
+*           HD = HDF.YTIPREG:HDF.YAPLIC:HDF.YFICH:HDF.VERFICH:HDF.CODBAN:HDF.CPD:HDF.IDFICH:HDF.IDFICHANT:HDF.CODMOEDA:HDF.CODPAIS:HDF.DATAVALOR:HDF.FILLER
+
+*--- Limpeza de variaveis
+
+        END
+
+        SEQ.REG.EMISS = 0 ; RTH = '' ; RTD = '' ; RTT = '' ; RTP = '' ; REGISTO = ''
+
+
+    NEXT PARAM
+
+
+END

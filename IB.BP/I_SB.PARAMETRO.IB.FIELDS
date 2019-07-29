@@ -1,0 +1,43 @@
+
+
+    MAT F = '' ; MAT N = '' ; MAT T = ''
+    MAT CHECKFILE = '' ; MAT CONCATFILE = ''
+    ID.CHECKFILE = '' ; ID.CONCATFILE = ''
+    Z = 0
+    ID.F = 'PROD.PARAMETER' ; ID.N = '7..C'
+    ID.T = 'ANY'
+    ID.CONCATFILE = 'AR'
+
+    Z += 1 ; F(Z) ="TIPREG" ; N(Z) ="1" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="TIPPROD" ; N(Z) ="2" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="BIN" ; N(Z) ="6" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="EXBIN" ; N(Z) ="2" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="COMBCH" ; N(Z) ="1" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="COMCHINT" ; N(Z) ="1" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="DATINI" ; N(Z) ="5" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="PSEQ" ; N(Z) ="1" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="IDENTCS" ; N(Z) ="8" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="CONTRATO" ; N(Z) ="5" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="TARCLIPMB" ; N(Z) ="2" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="DIFERIMENTO" ; N(Z) ="1" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="TIPPIN" ; N(Z) ="1" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="SALDINPMB" ; N(Z) ="7" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="CODMOEDA" ; N(Z) ="3" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="CODBAN" ; N(Z) ="4" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="XX.TARGET" ; N(Z) ="15" ; T(Z) = "ANY"
+    CHECKFILE(Z) = "TARGET":FM:EB.TAR.SHORT.NAME
+    Z += 1 ; F(Z) ="DESCRIPTION" ; N(Z) ="35" ; T(Z) = "ANY"
+    Z += 1 ; F(Z) ="COMMISSION.CODE" ; N(Z) ="15" ; T(Z) = "ANY"
+    CHECKFILE(Z) = "FT.COMMISSION.TYPE":FM:FT4.SHORT.DESCR
+    Z += 1 ; F(Z) ="STAMP.DUTY" ; N(Z) ="15" ; T(Z) = "ANY"
+    CHECKFILE(Z) = "FT.COMMISSION.TYPE":FM:FT4.SHORT.DESCR
+    Z += 1 ; F(Z) ="TRANSACTION.TYPE" ; N(Z) ="10" ; T(Z) = "ANY"
+    CHECKFILE(Z) = "FT.TXN.TYPE.CONDITION":FM:FT6.SHORT.DESCR
+    Z += 1 ; F(Z) = "DEF.CHRG.CODE" ; N(Z) = "11" ; T(Z) = 'A'
+    CHECKFILE(Z) = "FT.COMMISSION.TYPE":FM:FT4.DESCRIPTION
+    Z += 1 ; F(Z) = "XX<GROUP.SPEC" ; N(Z) = "11" ; T(Z) = 'A'
+    CHECKFILE(Z) = "SB.SPECIAL.GROUP":FM:SBSG.DESCRIPTION
+    Z += 1 ; F(Z) = "XX>CHARGE.CODE" ; N(Z) = "11" ; T(Z) = 'A'
+    CHECKFILE(Z) = "FT.COMMISSION.TYPE":FM:FT4.DESCRIPTION
+
+    V = Z + 9 ; PREFIX = 'IBPARAM.'

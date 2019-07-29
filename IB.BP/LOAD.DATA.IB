@@ -1,0 +1,82 @@
+    PROGRAM LOAD.DATA.IB
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INSERT I_ENQUIRY.COMMON
+
+    OPEN "","IB.TEMP" TO F.SOURCE ELSE
+        STOP "IB.TEMP DIR NOT FOUND"
+    END
+
+    SOURCE.ID = TRIM(@SENTENCE[" ",2,1])
+
+    YLEN = TRIM(@SENTENCE[" ",3,1])
+
+    YAPPL = TRIM(@SENTENCE[" ",4,1])
+
+    GOSUB CREATE.VERSION
+
+    FN.APPL = "F." : YAPPL
+    OPEN "",FN.APPL TO F.APPL ELSE NULL
+
+    APP.NAME = YAPPL
+
+    READ R.SOURCE FROM F.SOURCE,SOURCE.ID THEN
+        YNO = DCOUNT(R.SOURCE,@FM)
+        FOR X = 1 TO YNO
+            YLINE = TRIM(R.SOURCE<X>)
+            YID = YLINE[" ",1,1]
+            YDATA = YLINE[" ",2,99]
+            IF YLEN THEN
+                YFMT = "R%" : YLEN
+                YID = FMT(YID, YFMT)
+            END
+            READ R.RECORD FROM F.APPL,YID ELSE NULL
+            CALL IB.CHAR.CONV(YDATA)
+            R.RECORD<1> = YDATA[1,35]
+            TRANSACTION.ID = YID
+            OFSVERSION = ",OFS"
+            GTSMODE = 1
+            NO.OF.AUTH = 0
+            GOSUB CREATE.OFS
+        NEXT X
+    END
+
+    STOP
+
+CREATE.VERSION:
+
+    APP.NAME = "VERSION"
+    OFSFUNCT = "I"
+    PROCESS = "PROCESS"
+    OFSVERSION = ","
+    GTSMODE = 1
+    NO.OF.AUTH = 0
+    R.RECORD = ""
+    TRANSACTION.ID = YAPPL : ",OFS"
+    FN.APPL = "F." : APP.NAME
+    OPEN "",FN.APPL TO F.APPL ELSE NULL
+    READ R.RECORD FROM F.APPL, TRANSACTION.ID ELSE NULL
+    IF R.RECORD<46> OR NOT(R.RECORD) THEN
+
+        R.RECORD<2> = 1
+        R.RECORD<3> = 1
+        R.RECORD<46> = 0
+        R.RECORD<66> = 1
+
+        GOSUB CREATE.OFS
+    END
+
+    RETURN
+
+
+CREATE.OFS:
+
+    YCOMP = ID.COMPANY
+    YFUNC = "I" : FM : ""
+    OFSR.RECORD = ""
+
+    CALL OFS.XML.IHLD.INAU.SB( YCOMP, APP.NAME, TRANSACTION.ID, OFSVERSION, YFUNC, OFSR.RECORD)
+    CRT OFSR.RECORD
+    RETURN
+END

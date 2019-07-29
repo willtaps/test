@@ -1,0 +1,76 @@
+*-----------------------------------------------------------------------------
+* <Rating>-10</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.ATM.POS.LINK.SB.FIELDS
+*-----------------------------------------------------------------------------
+*<doc>
+* Template for field definitions routine YOURAPPLICATION.FIELDS
+*
+* @author willard.matsaudza@gmail.com
+* @stereotype fields template
+* @uses Table
+* @public Table Creation
+* @package infra.eb
+* </doc>
+*-----------------------------------------------------------------------------
+* Modification History :
+*
+* 19/10/07 - EN_10003543
+*            New Template changes
+*
+* 14/11/07 - BG_100015736
+*            Exclude routines that are not released
+*-----------------------------------------------------------------------------
+*** <region name= Header>
+*** <desc>Inserts and control logic</desc>
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_DataTypes
+*** </region>
+*-----------------------------------------------------------------------------
+    CALL Table.defineId("IB.LINK.ID", T24_String) ;* Define Table id
+*-----------------------------------------------------------------------------
+
+    CALL Table.addField("NAME", T24_String, "", "")
+    CALL Table.addField("ATM.POS.DESCRIPT", T24_String, "", "")
+    CALL Table.addField("CASH.INT.ACCT", T24_String, "", "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("UOT.SUSP.ACCT", T24_String, "", "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("TOU.SUSP.ACCT", T24_String, "", "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("MRCH.SUSP.ACCT", T24_String, "", "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("US.ON.US", T24_String, "", "")
+    CALL Table.addField("US.ON.THEM", T24_String, "", "")
+    CALL Table.addField("THEM.ON.US", T24_String, "", "")
+    CALL Table.addField("XX.NOTIFICATED", T24_String, "", "")
+    CALL Table.addField("XX.MOBILE.PHONE", T24_String, "", "")
+    CALL Table.addField("XX.EMAIL", T24_String, "", "")
+    CALL Table.addField("NOU.SUS.ACCT", T24_String, "", "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("TRF.SUS.ACCT", T24_String, Field_Mandatory, "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("CB.SUS.ACCT", T24_String, Field_Mandatory, "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addField("EDST.PL.CATEG", T24_String,"", "")
+    CALL Field.setCheckFile("CATEGORY")
+    CALL Table.addField("EDST.SUS.ACCT", T24_String,"", "")
+    CALL Field.setCheckFile("ACCOUNT")
+    CALL Table.addReservedField('RESERVED.6')
+    CALL Table.addReservedField('RESERVED.5')
+    CALL Table.addReservedField('RESERVED.4')
+    CALL Table.addReservedField('RESERVED.3')
+    CALL Table.addReservedField('RESERVED.2')
+    CALL Table.addReservedField('RESERVED.1')
+
+*   CALL Field.setCheckFile(fileName)        ;* Use DEFAULT.ENRICH from SS or just field 1
+*    CALL Table.addFieldDefinition(fieldName, fieldLength, fieldType, neighbour) ;* Add a new field
+*    CALL Table.addFieldWithEbLookup(fieldName,virtualTableName,neighbour) ;* Specify Lookup values
+*    CALL Field.setDefault(defaultValue) ;* Assign default value
+*-----------------------------------------------------------------------------
+    CALL Table.setAuditPosition         ;* Poputale audit information
+*-----------------------------------------------------------------------------
+    RETURN
+*-----------------------------------------------------------------------------
+END

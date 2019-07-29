@@ -1,0 +1,44 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE V.CHECK.BAL.AUTH
+*********************************************
+*Develop By       : Priti Carsane
+*Developed for    : Standard Bank Mozambique
+*Development Date : 26/01/2016
+*
+*Summary Description: This before auth rotine
+*checks if the customer being charged has sufficient amount.
+*
+*Revision by:
+*Revision Comment:
+*Revision Date:
+*Version:
+**********************************************
+
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INSERT I_F.SB.IB.CARD.ISSUE
+    $INSERT I_F.ACCOUNT
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+        YR.ACCT = R.NEW(IBCI.LOCAL.REF)<1,6>
+
+    END ELSE
+        YR.ACCT = R.NEW(IBCI.CONTA1)
+    END
+    CALL DBR('ACCOUNT':@FM:AC.CURRENCY,YR.ACCT,YR.MOEDA)
+
+    CALL GET.ACCT.BRANCH(YR.ACCT,MNEM,YCOMP)
+    CALL SB.GET.FULL.AC.BAL(YR.ACCT,MNEM,YACCT.AVAIL.BAL)
+
+
+    DR.ACCT = R.NEW(IBCI.CONTA1) ; CHRG.AMT = R.NEW(IBCI.CHARGES)
+    IF YACCT.AVAIL.BAL LT CHRG.AMT THEN
+        E = 'NAO TEM SALDO SUFICIENTE. VALOR A PAGAR ':CHRG.AMT:YR.MOEDA
+        ETEXT = 'NAO TEM SALDO SUFICIENTE. VALOR A PAGAR ':CHRG.AMT:YR.MOEDA
+        CALL STORE.END.ERROR
+    END
+    RETURN
+
+END

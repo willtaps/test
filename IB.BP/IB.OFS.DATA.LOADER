@@ -1,0 +1,26 @@
+    SUBROUTINE IB.OFS.DATA.LOADER
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INSERT I_F.USER
+    $INSERT I_F.STANDARD.SELECTION
+
+    FN.USER="F.USER";
+    F.USER=""
+    CALL OPF(FN.USER,F.USER)
+    OFS.ID = "XML.OFS"
+
+    OPEN "","&SAVEDLISTS&" TO F.SAVE THEN
+        READ YREC FROM F.SAVE, "IB.DATA.LOAD" THEN
+            YNO = DCOUNT(YREC, @FM)
+            FOR NN = 1 TO YNO
+                YMSG = YREC<NN>
+                HUSH ON
+                CALL OFS.GLOBUS.MANAGER(OFS.ID, YMSG)
+                HUSH OFF
+            NEXT NN
+        END
+    END
+    RETURN
+
+END

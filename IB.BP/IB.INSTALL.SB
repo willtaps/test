@@ -1,0 +1,127 @@
+    PROGRAM IB.INSTALL.SB
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+    EXEC "COMO ON IB.INSTALL.SB"
+
+    EQU REC.NOT.CHANGED TO 'LIVE RECORD NOT CHANGED'
+
+    EQU NO.AUTH.CHNAGE TO "NOT AUTH. RECORD NOT CHANGED"
+
+    GOSUB GET.TRANSFORM
+
+    GOSUB INITIALISE
+
+    FOR AA = 1 TO 10
+        Y1 = AA*3 : "=L"
+        YMSG = "[" :FMT( FMT('',Y1),"30L") : "]"
+        CRT FMT(" ","60L") : YMSG
+        GOSUB PROCESS
+    NEXT AA
+    CRT @(-1):@(0,0):
+    CRT "CHEKING FOR ERRORS...."
+    FOR AA = 1 TO 1
+        GOSUB CHECK.STATUS
+    NEXT AA
+    IF NOT(YERROR) THEN
+        CRT "No Errors Found. Process Complete. Press any key to exit"
+    END ELSE
+        CRT "Please fix listed records manualy. Press any key to exit"
+    END
+    INPUT XXX
+
+    EXEC "COMO OFF"
+
+    STOP
+
+INITIALISE:
+
+    OPEN "","IB.BP" TO F.SOURCE ELSE
+        STOP " FAILED TO OPEN IB.BP"
+    END
+
+    OFS.SOURCE.ID = "XML.OFS"
+
+    SKIP.IDS = ""
+
+    PROCESS.LIST = ""
+
+    LAST.ERROR = ""
+
+    RETURN
+
+PROCESS:
+
+    READ YREC FROM F.SOURCE, "I_F.OFS.INSTALL" THEN
+        YNO = DCOUNT(YREC,@FM)
+        FOR X = 1 TO YNO
+            OFS.MSG = YREC<X>["|",2,1]
+            XML.REC = OFS.MSG
+            YID =  YREC<X>["|",1,1]
+            LOCATE YID IN PROCESS.LIST<1,1> SETTING POS ELSE
+                CRT FMT("PROCESSING : " : YID , "60L") : YMSG
+                EXEC "HUSH ON"
+                CALL OFS.GLOBUS.MANAGER( OFS.SOURCE.ID, OFS.MSG)
+                XML.RESPONSE = OFS.MSG
+                XML.REC = OFS.MSG
+                EXEC "HUSH OFF"
+                YSTAT = XMLTOXML(XML.REC,XMLTRANS,YERR)
+                YSTATUS = YSTAT["|",1,1][":",2,1]
+
+                IF YSTATUS = "1" THEN
+                    PROCESS.LIST<1,POS> = YID
+                END ELSE
+                    LOCATE YID IN LAST.ERROR<1,1> SETTING POS2 ELSE
+                        LAST.ERROR<1,POS2> = YID
+                    END
+                    ERR.MSG = TRIM(YSTAT["|",2,1][":",2,1])
+                    IF ERR.MSG = REC.NOT.CHANGED OR ERR.MSG = NO.AUTH.CHNAGE THEN
+                        PROCESS.LIST<1,POS> = YID
+                    END ELSE
+                        LAST.ERROR<2,POS2> = ERR.MSG
+                    END
+                END
+            END
+        NEXT X
+    END
+
+    RETURN
+
+CHECK.STATUS:
+
+    YERROR = 0
+    READ YREC FROM F.SOURCE, "I_F.OFS.INSTALL" THEN
+        YNO = DCOUNT(YREC,@FM)
+        FOR X = 1 TO YNO
+            YID =  YREC<X>["|",1,1]
+            LOCATE YID IN PROCESS.LIST<1,1> SETTING POS ELSE
+                LOCATE YID IN LAST.ERROR<1,1> SETTING POS THEN
+                    CRT "ERROR : " : YID : " ERROR.TEXT=[" : LAST.ERROR<2,POS> : "]"
+                    YERROR = 1
+                END
+            END
+        NEXT X
+    END
+
+    RETURN
+
+GET.TRANSFORM:
+
+    XMLTRANS='<?xml version="1.0" encoding="utf-8"?>'
+    XMLTRANS :='<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"'
+    XMLTRANS :=' xmlns:msxsl="urn:schemas-microsoft-com:xslt" exclude-result-prefixes="msxsl">'
+    XMLTRANS :='<xsl:output method="text" indent="no"/>'
+    XMLTRANS :='<xsl:template match="/ofsAppRequest">'
+    XMLTRANS :='<xsl:value-of select="./request/application"/>'
+    XMLTRANS :=':<xsl:value-of select="./request/transactionID"/>'
+    XMLTRANS :='</xsl:template>'
+    XMLTRANS :='<xsl:template match="/ofsResponse">'
+    XMLTRANS :='STATUS:<xsl:value-of select="./response/successFail"/>'
+    XMLTRANS :='|ERROR.TEXT:<xsl:value-of select="./response/data/result/errorText"/>'
+    XMLTRANS :='</xsl:template>'
+    XMLTRANS :='</xsl:stylesheet>'
+
+    RETURN
+
+END

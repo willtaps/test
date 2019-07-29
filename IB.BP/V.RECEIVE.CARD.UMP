@@ -1,0 +1,141 @@
+*********************************************
+*Develop By : Priti Carsane
+*Developed for: Standard Bank Mozambique
+*
+*Summary Description: This authorisation routine is going to alter the status of cards, per batch
+*selects all cards in table CARD.ISSUE with status equal "1-Requisitado" then saves into history table
+*and then changes the status to "5-Recibido pela UMP" and writes the date in field "Date Receive UMP".
+*
+*Development Date: 09/10/2014
+*Modified Date: 12/05/2015
+**********************************************
+
+    SUBROUTINE V.RECEIVE.CARD.UMP
+*
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_ENQUIRY.COMMON
+    $INSERT BP I_F.SB.CARD.RECEIVE
+    $INCLUDE I_F.CARD.ISSUE
+
+
+
+
+    GOSUB INITIALISE
+
+    RETURN
+
+
+
+***********
+INITIALISE:
+***********
+
+    YLOTE = R.NEW(EB.DEV.HLP.NUMERO.LOTE)
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+    CO.LIST = '' ; CO.NO = '' ; CO.ERR = ''
+    SEL.CO = 'SSELECT ':FN.COMPANY:' WITH CONSOLIDATION.MARK EQ "N"'
+    CALL EB.READLIST(SEL.CO,CO.LIST,'',CO.NO,CO.ERR)
+    LOOP
+        REMOVE CO.ID FROM CO.LIST SETTING MORE1
+    WHILE CO.ID:MORE1
+        CALL LOAD.COMPANY(CO.ID)
+        R.CO.ERR = '' ; R.CO = ''
+        CALL F.READ('F.COMPANY',CO.ID,R.CO,F.COMPANY,R.CO.ERR)
+        MNE = R.CO<3>
+
+        IF MNE NE 'BNK' OR MNE NE 'S95' THEN
+
+            GOSUB LOAD.CARDS
+            GOSUB PROCESS.CARDS
+
+        END
+
+    REPEAT
+
+    RETURN
+
+
+
+
+
+**************
+PROCESS.CARDS:
+**************
+
+    SELECT.CMD = 'SSELECT ':YF.CARD.ISSUE:' BY @ID WITH BATCH.ID LIKE ...':YLOTE:'... AND WITH SB.CARD.STATUS EQ 1'
+    CARD.LIST = '' ; NO.SELECTED = ''
+    CALL EB.READLIST(SELECT.CMD,CARD.LIST,'',NO.SELECTED,'')
+
+    IF CARD.LIST EQ '' THEN RETURN
+
+    FOR J = 1 TO NO.SELECTED
+        YR.ISS.ID = ''
+        YR.ISS.ID = CARD.LIST<J> ; ER = ''
+        YR.ISS.REC = ''
+        CALL F.READ(YF.CARD.ISSUE,YR.ISS.ID,YR.ISS.REC,F.CARD.ISSUE,ER)
+
+        IF ER THEN
+            ETEXT = 'ERROR READING CARD ISSUE FILE'
+        END ELSE
+            CURR.NO = YR.ISS.REC<CARD.IS.CURR.NO> + 0
+            IF CURR.NO EQ 0 THEN CURR.NO + = 1
+            NEW.ID = YR.ISS.ID:';':CURR.NO
+            WRITE YR.ISS.REC TO F.CIH,NEW.ID
+            GOSUB UPDATE.CARD.ISSUE
+        END
+    NEXT J
+
+    RETURN
+
+
+
+
+******************
+UPDATE.CARD.ISSUE:
+******************
+
+    YR.ISS.REC<CARD.IS.LOCAL.REF,1> = 5
+    YR.ISS.REC<CARD.IS.LOCAL.REF,65> = TODAY      ;* data de recepcao pela UMP
+    YR.ISS.REC<CARD.IS.INPUTTER> = OPERATOR
+    YR.ISS.REC<CARD.IS.AUTHORISER> = OPERATOR
+    IF YR.ISS.REC<CARD.IS.CURR.NO> EQ 0 THEN
+        YR.ISS.REC<CARD.IS.CURR.NO> = YR.ISS.REC<CARD.IS.CURR.NO> + 2
+    END ELSE
+        YR.ISS.REC<CARD.IS.CURR.NO> = YR.ISS.REC<CARD.IS.CURR.NO> + 1
+    END
+    WRITE YR.ISS.REC TO F.CARD.ISSUE,YR.ISS.ID ON ERROR RETURN
+
+
+    RETURN
+
+
+
+
+***********
+LOAD.CARDS:
+***********
+
+    YF.CARD.ISSUE = 'F':MNE:'.CARD.ISSUE'
+    F.CARD.ISSUE = ''
+    CALL OPF(YF.CARD.ISSUE,F.CARD.ISSUE)
+    YR.ISS.ID = '' ; YR.ISS.REC = ''
+
+
+    FN.CIH = 'F':MNE:'.CARD.ISSUE$HIS'
+    F.CIH = ''
+    CALL OPF(FN.CIH,F.CIH)
+
+
+
+    RETURN
+
+
+END

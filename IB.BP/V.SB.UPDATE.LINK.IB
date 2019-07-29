@@ -1,0 +1,37 @@
+*-----------------------------------------------------------------------------
+* <Rating>-3</Rating>
+*-----------------------------------------------------------------------------
+    PROGRAM V.SB.UPDATE.LINK.IB
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE IB.BP I_F.IB.ATM.POS.LINK.SB
+
+
+    FN.LINK = "F.IB.ATM.POS.LINK.SB"
+    F.LINK = ""
+    CALL OPF(FN.LINK,F.LINK)
+
+    FN.TEMP = "TEMP"
+    FV.TEMP = ""
+    CALL OPF(FN.TEMP,FV.TEMP)
+
+    OPEN '','TEMP' TO F.INPUT.FILE ELSE PRINT 'CAN NOT OPEN TEMP'
+    YFILE.NAME = "LINKS"
+    LINK.LIST = ''
+    READ LINK.LIST FROM F.INPUT.FILE,YFILE.NAME THEN
+        CNT = DCOUNT(LINK.LIST,@FM)
+        FOR K = 1 TO CNT
+            LINK.ID = LINK.LIST<K>
+
+            LINK = ''
+            READ LINK FROM F.LINK,LINK.ID ELSE LINK = ''
+
+            LINK<IB.LINK.TRF.SUS.ACCT,1>= '1966767931005'
+            LINK<IB.LINK.TRF.SUS.ACCT,2>= '1965504821004'
+            LINK<IB.LINK.TRF.SUS.ACCT,3>= '1966767921007'
+
+            WRITE LINK TO F.LINK,LINK.ID ON ERROR WRITE.ERROR = 1
+        NEXT K
+    END
+    RETURN
+END

@@ -1,0 +1,1297 @@
+    SUBROUTINE SB.IB.CARD.ISSUE
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.SB.IB.CARD.ISSUE
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.CARD.CHARGE
+    $INCLUDE I_F.CARD.TYPE
+    $INCLUDE I_F.DATES
+    $INCLUDE I_F.PAYMENT.STOP.TYPE
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.CUSTOMER
+    $INCLUDE I_F.POSTING.RESTRICT
+    $INSERT I_F.SB.PARAMETRO.IB
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_F.FUNDS.TRANSFER
+*    $INSERT I_F.FT.CHARGE.TYPE
+    $INSERT BSTM.BP I_F.SB.UNPROCESSED.CHARGES
+    $INCLUDE I_F.FT.COMMISSION.TYPE
+    $INSERT BSTM.BP I_F.SB.SPECIAL.CONDITIONS
+    $INSERT BSTM.BP I_F.SB.UNPROCESSED.CHARGES
+
+    DIM YR.ACCOUNT(AC.AUDIT.DATE.TIME) ; MAT YR.ACCOUNT=''
+*
+*********************************************************************
+*
+    GOSUB DEFINE.PARAMETERS
+*
+    IF LEN(V$FUNCTION) GT 1 THEN
+        GOTO V$EXIT
+    END
+*
+    CALL MATRIX.UPDATE
+*
+    GOSUB INITIALISE          ;* Special Initialising
+
+
+
+*************** Main Program Loop *************************
+
+    LOOP
+
+        CALL RECORDID.INPUT
+
+    UNTIL MESSAGE = 'RET' DO
+
+        V$ERROR = ''
+
+        IF MESSAGE = 'NEW FUNCTION' THEN
+
+            GOSUB CHECK.FUNCTION        ;* Special Editing of Function
+
+            IF V$FUNCTION EQ 'E' OR V$FUNCTION EQ 'L' THEN
+                CALL FUNCTION.DISPLAY
+                V$FUNCTION = ''
+            END
+
+        END ELSE
+
+            GOSUB CHECK.ID    ;* Special Editing of ID
+            IF V$ERROR THEN GOTO MAIN.REPEAT
+            CALL RECORD.READ
+
+            IF MESSAGE = 'REPEAT' THEN
+                GOTO MAIN.REPEAT
+            END
+
+            CALL MATRIX.ALTER
+            GOSUB CHECK.RECORD          ;* Special Editing of Record
+            IF V$ERROR THEN GOTO MAIN.REPEAT
+
+            LOOP
+                GOSUB PROCESS.FIELDS    ;* ) For Input
+                GOSUB PROCESS.MESSAGE   ;* ) Applications
+            WHILE MESSAGE = 'ERROR' DO REPEAT
+
+        END
+
+
+*********************************************************************
+MAIN.REPEAT:
+
+    REPEAT
+*********************************************************************
+
+    V$EXIT:
+
+    RETURN          ;* From main program
+
+
+
+*********************************************************************
+*                      S u b r o u t i n e s                        *
+*********************************************************************
+
+
+***************
+PROCESS.FIELDS:
+***************
+
+
+* Input or display the record fields.
+
+    LOOP
+
+        IF SCREEN.MODE EQ 'MULTI' THEN
+            IF FILE.TYPE EQ 'I' THEN
+                CALL FIELD.MULTI.INPUT
+            END ELSE
+                CALL FIELD.MULTI.DISPLAY
+            END
+        END ELSE
+            IF FILE.TYPE EQ 'I' THEN
+                CALL FIELD.INPUT
+            END ELSE
+                CALL FIELD.DISPLAY
+            END
+        END
+
+    UNTIL MESSAGE <> "" DO
+
+        GOSUB CHECK.FIELDS    ;* Special Field Editing
+        IF T.SEQU NE '' THEN T.SEQU<-1> = A + 1
+
+    REPEAT
+
+    RETURN
+
+
+
+****************
+PROCESS.MESSAGE:
+****************
+
+* Processing after exiting from field input (PF5)
+
+    IF MESSAGE = 'VAL' THEN
+
+        MESSAGE = ''
+
+        BEGIN CASE
+
+        CASE V$FUNCTION EQ 'D'
+            GOSUB CHECK.DELETE          ;* Special Deletion checks
+        CASE V$FUNCTION EQ 'R'
+            GOSUB CHECK.REVERSAL        ;* Special Reversal checks
+        CASE OTHERWISE
+            GOSUB CROSS.VALIDATION      ;* Special Cross Validation
+        END CASE
+
+        IF NOT(V$ERROR) THEN
+            CALL UNAUTH.RECORD.WRITE
+        END ELSE
+            CALL TRANSACTION.ABORT ; V$ERROR=''
+        END
+
+    END
+
+    IF MESSAGE = 'AUT' THEN
+        GOSUB BEFORE.AUTH.WRITE         ;* Special Processing before write
+        CALL AUTH.RECORD.WRITE
+    END
+
+
+    RETURN
+
+
+
+*********************
+PROCESS.MESSAGE.EXIT:
+*********************
+
+    RETURN
+
+
+
+
+****************
+PROCESS.DISPLAY:
+****************
+
+
+* Display the record fields.
+
+    IF SCREEN.MODE EQ 'MULTI' THEN
+        CALL FIELD.MULTI.DISPLAY
+    END ELSE
+        CALL FIELD.DISPLAY
+    END
+
+    RETURN
+
+
+
+
+*********************************************************************
+*                      Special Tailored Subroutines                 *
+*********************************************************************
+
+
+
+*********
+CHECK.ID:
+*********
+
+*--- ler a registo na tabela SB.PARAMETRO.IB ----------*
+
+    CARD.PARAM = R.NEW(IBCI.PARAMETER)
+    CALL F.READ(FN.SB.PARAMETRO.IB,CARD.PARAM,R.CARD.PARAM,FV.SB.PARAMETRO.IB,PARAM.ERR)
+*   CARD.ID = R.CARD.PARAM<IBPARAM.TIPROD>
+    CARD.ID = "P24"
+
+    CARD.TYPE = '' ; CALL F.READ('F.CARD.TYPE',CARD.ID,CARD.TYPE,F.CARD.TYPE,ER)
+    ALLOW.FCY.ACCT = CARD.TYPE<CARD.TYPE.ALLOW.FCY.ACCT>
+
+    RETURN
+
+
+
+
+
+*************
+CHECK.RECORD:
+*************
+
+
+* Validation and changes of the Record.  Set ERROR to 1 if in error.
+
+
+    RETURN
+
+
+
+
+*************
+CHECK.FIELDS:
+*************
+
+    BEGIN CASE
+
+    CASE AF=IBCI.CONTA1
+
+        ACCOUNT.ID=COMI
+
+        GOSUB ACCOUNT.VAL
+
+        IF NOT(ER) THEN
+            COMI.ENRI = ACCOUNT<AC.SHORT.TITLE>
+        END
+
+
+    CASE AF=IBCI.DATREQ
+        ISSUE.DATE=COMI
+        GOSUB ISSUE.DATE.VAL
+        COMI=ISSUE.DATE
+
+    CASE AF=IBCI.DATEXP
+        EXPIRY.DATE=COMI ; ISSUE.DATE=R.NEW(IBCI.DATREQ)
+        COMI=EXPIRY.DATE
+
+    CASE AF=IBCI.NOMECLI2
+        VMC=COUNT(R.NEW(IBCI.NOMECLI2),VM)+1
+        NAME=COMI
+        GOSUB NAME.VAL
+        COMI=NAME
+
+        IF COMI = '' THEN
+            COMI = TODAY
+        END
+
+
+*   CASE AF=SBSCI.CAR.CANC.DATE
+*       ISSUE.DATE=R.NEW(SBSCI.DATAREQ) ; EXPIRY.DATE=R.NEW(SBSCI.DATEXP)
+*       CANCELLATION.DATE=COMI
+*       GOSUB CANCELLATION.DATE.VAL
+
+
+    CASE AF=IBCI.CHARGES
+        CHARGES=COMI
+        GOSUB CHARGES.VAL
+        COMI=CHARGES
+
+    CASE AF=IBCI.CHARGE.DATE
+        CHARGE.DATE=COMI ; CHARGES=R.NEW(IBCI.CHARGES)
+        GOSUB CHARGE.DATE.VAL
+        COMI=CHARGE.DATE
+
+    END CASE
+
+    RETURN
+
+CHECK.PARAMETER:
+
+    IF YCUST#'' THEN
+        R.CLI = '' ;  ER=''
+        CALL F.READ(FN.CUSTOMER,YCUST,R.CLI,FV.CUSTOMER,ER)
+        YTARGET = R.CLI<EB.CUS.TARGET>
+
+        YPARAMETER =  R.NEW(IBCI.PARAMETER)
+        R.PARAMETRO = '' ;
+        CALL F.READ(FN.SB.PARAMETRO.IB,YPARAMETER,R.PARAMETRO,FV.SB.PARAMETRO.IB,ER)
+        YTARGET.LIST = R.PARAMETRO <IBPARAM.TARGET>
+
+
+        YPOS = ''
+        FINDSTR  YTARGET IN YTARGET.LIST SETTING YPOS THEN
+!----YUPPYY---
+
+        END ELSE
+            ER='CUSTOMER TARGET != THEN CARD TYPE'
+
+            ETEXT=ER ; CALL STORE.END.ERROR
+        END
+
+    END ELSE
+        ER='MISSING CUSTOMER NO.'
+    END
+
+    RETURN
+
+
+*****************
+CROSS.VALIDATION:
+*****************
+
+    GOSUB CHECK.PARAMETER
+
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+        ACCOUNT.ID = R.NEW(IBCI.LOCAL.REF)<1,6>
+        R.NEW(IBCI.CONTA1) = R.NEW(IBCI.LOCAL.REF)<1,6>
+
+    END
+
+    AF = IBCI.CONTA1
+    CALL DUP
+*
+    ACCOUNT.ID=R.NEW(IBCI.CONTA1)
+    GOSUB ACCOUNT.VAL
+
+
+**** testing porpouse ******
+
+
+    ACCOUNT.ID = R.NEW(IBCI.CONTA1)
+    ACCOUNT.ID2 = R.NEW(IBCI.CONTA2)
+
+***Escreve o codigo de balcao da SAN-2 *****
+
+    IF ACCOUNT.ID THEN
+        GOSUB ACCOUNT.VAL
+
+        IF NOT(ER) THEN
+            R.NEW(IBCI.CODAGE1) ="0":ACCOUNT.ID[1,3]
+        END
+
+    END
+
+***Preenche dados dependentes da SAN-2 ****
+
+    IF ACCOUNT.ID2 THEN
+
+        R.NEW(IBCI.TCRU2) = "20"
+        R.NEW(IBCI.CODAGE2) = "0":ACCOUNT.ID2[1,3]
+        R.NEW(IBCI.LIMES2) = "9999"
+        R.NEW(IBCI.DIA2) = "00"
+
+    END ELSE
+
+        R.NEW(IBCI.TCRU2) = "00"
+        R.NEW(IBCI.CODAGE2) = "0000"
+        R.NEW(IBCI.LIMES2) = "0000"
+        R.NEW(IBCI.DIA2) = "00"
+
+    END
+
+    IF ER#'' THEN AF=IBCI.CONTA1 ; ETEXT=ER ; CALL STORE.END.ERROR ; ER=''
+    IF R.NEW(IBCI.DATEXP) EQ '' THEN
+        ISSUE.DATE=R.NEW(IBCI.DATREQ)
+        GOSUB ISSUE.DATE.VAL
+    END
+    EXPIRY.DATE=R.NEW(IBCI.DATEXP)
+
+    NAME=R.NEW(IBCI.NOMECLI2)
+    GOSUB NAME.VAL
+    IF ER#'' THEN AF=IBCI.NOMECLI2 ; ETEXT=ER ; CALL STORE.END.ERROR ; ER=''
+
+
+
+*   CANCELLATION.DATE=R.NEW(SBSCI.CAR.CANC.DATE)
+*   GOSUB CANCELLATION.DATE.VAL
+
+*   IF ER#'' THEN AF=SBSCI.CAR.CANC.DATE ; ETEXT=ER ; CALL STORE.END.ERROR ; ER=''
+
+
+    IF ID.OLD='' THEN
+
+        CHARGES=R.NEW(IBCI.CHARGES)
+        GOSUB CHARGES.VAL
+
+        IF ER#'' THEN AF=IBCI.CHARGES ; ETEXT=ER ; CALL STORE.END.ERROR ; ER=''
+
+        CHARGE.DATE=R.NEW(IBCI.CHARGE.DATE)
+        GOSUB CHARGE.DATE.VAL
+
+        IF ER#'' THEN AF=IBCI.CHARGE.DATE ; ETEXT=ER ; CALL STORE.END.ERROR ; ER=''
+
+    END
+*
+    IF END.ERROR THEN RETURN
+
+    CURR.NO=0 ; CALL STORE.OVERRIDE(CURR.NO)
+    IF ID.OLD='' THEN
+        GOSUB OVERRIDES
+        IF TEXT='NO' THEN V$ERROR=1 ; RETURN
+    END
+
+    R.NEW(IBCI.DATREQ)=ISSUE.DATE
+
+    IF R.NEW(IBCI.NOMECLI) EQ '' THEN
+        GOSUB GET.CUSTOMER.DETAILS
+    END
+
+    IF ID.OLD#'' THEN RETURN  ;* remainder 'nochange'
+
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+        YR.ACCT = R.NEW(IBCI.LOCAL.REF)<1,6>
+        ACCOUNT.ID = R.NEW(IBCI.LOCAL.REF)<1,6>
+    END ELSE
+        YR.ACCT = R.NEW(IBCI.CONTA1)
+    END
+*--------- TO BE CHECKED --------------*
+
+*R.NEW(IBCI.CHARGES)=CHARGES
+*R.NEW(IBCI.CHARGE.DATE)=CHARGE.DATE
+
+    IF CHARGES THEN
+        YR.MULTI.STMT=''
+*ACCOUNT = "MZ0010":ACCOUNT.ID[0,3]
+        CALL CARD.ISSUE.CHARGES(ACCOUNT.ID,ACCOUNT,CARD.CHARGE,CHARGES,CHARGE.DATE,YR.MULTI.STMT,LCY.AMT)
+        IF R.NEW(IBCI.STMT.NO)='VAL' THEN
+            VAL.CHG='CHG'
+        END ELSE
+            VAL.CHG='VAL'
+        END
+        CALL GET.ACCT.BRANCH(YR.ACCT,MNEM,YCOMP)
+        CALL SB.GET.FULL.AC.BAL(YR.ACCT,MNEM,YACCT.AVAIL.BAL)
+        IF YACCT.AVAIL.BAL GE CHARGES THEN
+            R.NEW(IBCI.LOCAL.REF)<1,8> = "YES"
+*            CALL EB.ACCOUNTING('CC',VAL.CHG,YR.MULTI.STMT,'')
+        END
+*CALL DBR('ACCOUNT':@FM:AC.CURRENCY,YR.ACCT,YCCY)
+
+        IF TEXT='NO' THEN V$ERROR=1
+
+    END ELSE
+
+        IF R.NEW(IBCI.STMT.NO)='VAL' THEN
+            R.NEW(IBCI.STMT.NO)=''
+*            CALL EB.ACCOUNTING('CC','DEL','','')
+        END
+    END
+
+    RETURN
+
+
+
+*************
+CHECK.DELETE:
+*************
+
+*    IF R.NEW(IBCI.STMT.NO)='VAL' THEN CALL EB.ACCOUNTING('CC','DEL','','')
+
+    RETURN
+
+
+
+***************
+CHECK.REVERSAL:
+***************
+
+*    IF R.NEW(IBCI.STMT.NO)#'' THEN CALL EB.ACCOUNTING('CC','REV','','')
+
+    RETURN
+
+
+
+******************
+BEFORE.UNAU.WRITE:
+******************
+
+
+    RETURN
+
+
+
+
+*****************
+AFTER.AUTH.WRITE:
+*****************
+
+
+    RETURN
+
+
+
+******************
+BEFORE.AUTH.WRITE:
+******************
+    R.CARD.ISSUE = ""
+
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+        YR.ACCT = R.NEW(IBCI.LOCAL.REF)<1,6>
+
+    END ELSE
+        YR.ACCT = R.NEW(IBCI.CONTA1)
+    END
+
+    CALL GET.ACCT.BRANCH(YR.ACCT,MNEM,YCOMP)
+*EBUG
+**Se for requisitado via WF, não paga
+    IF (PGM.VERSION EQ ',CE.WF') OR (PGM.VERSION EQ ',NPER.WF') THEN
+
+        R.NEW(IBCI.LOCAL.REF)<1,8> = 'NO'
+        GOSUB NAO.COBRA
+        GOSUB CRIA.CARTAO
+    END ELSE
+
+        CALL SB.GET.FULL.AC.BAL(YR.ACCT,MNEM,YACCT.AVAIL.BAL)
+        DR.ACCT = R.NEW(IBCI.CONTA1) ; CHRG.AMT = R.NEW(IBCI.CHARGES)
+        IF YACCT.AVAIL.BAL LT CHRG.AMT THEN
+            E = 'NAO TEM SALDO SUFICIENTE. VALOR A PAGAR ':CHRG.AMT:YR.MOEDA
+            ETEXT = 'NAO TEM SALDO SUFICIENTE. VALOR A PAGAR ':CHRG.AMT:YR.MOEDA
+            CALL STORE.END.ERROR
+        END ELSE
+            CALL F.READ('F.ACCOUNT',DR.ACCT,R.ACCT,F.ACCOUNT,YERR)
+            CALL F.READ('F.CARD.CHARGE','P24',R.CCHRG,F.CARD.CHARGE,ER)
+            DR.CCY = R.ACCT<AC.CURRENCY>
+            Y.OFS.DET<FT.DEBIT.ACCT.NO> = DR.ACCT ; Y.OFS.DET<FT.DEBIT.CURRENCY> = DR.CCY
+            Y.OFS.DET<FT.DEBIT.AMOUNT> = CHRG.AMT ; Y.OFS.DET<FT.CREDIT.ACCT.NO> = 'PL':R.CCHRG<CARD.CHG.PL.CATEGORY>
+            Y.OFS.DET<FT.DEBIT.VALUE.DATE> = TODAY ; Y.OFS.DET<FT.DEBIT.THEIR.REF> = ID.NEW
+
+            CALL OFS.BUILD.RECORD(APPLIC.NAME,YFUNC,YPROC,YVER,GTS.MODE,YNO.OF.AUTH,YR.TXN.ID,Y.OFS.DET,Y.OFS.MSG)
+            CALL OFS.POST.MESSAGE(Y.OFS.MSG,OFS.MSG.ID,OFS.SOURCE,OFS.OPTION)
+            CALL JOURNAL.UPDATE(YR.TXN.ID)
+
+            R.NEW(IBCI.LOCAL.REF)<1,8> = "YES"
+            GOSUB CRIA.CARTAO
+        END
+    END
+    RETURN
+
+
+*------------
+CRIA.CARTAO:
+*------------
+
+*--- Preaparacao d informacao para actualizacao na tabela CARD.ISSUE--------*
+    R.NEW(IBCI.DATAUTH) = TODAY
+
+    R.NEW(IBCI.LOCAL.REF)<1,2> = 'P24':TODAY[3,6]:R.NEW(IBCI.BALCENT)[7,3]
+    R.CARD.ISSUE = ""
+
+    YCARD.SITUATION = R.NEW(IBCI.NSITCAR)
+
+    IF YCARD.SITUATION EQ "02" THEN
+        YCARD.STATUS = "90"
+    END
+
+    IF YCARD.SITUATION EQ "03" THEN
+        YCARD.STATUS = "94"
+    END
+
+    F.ACCOUNT = ""
+    ER1 = ""
+    CALL F.READ("F.ACCOUNT",YR.ACCT,R.ACCOUNT,F.ACCOUNT, ER1)
+    YAC.CCY = R.ACCOUNT<AC.CURRENCY>
+
+    R.CARD.ISSUE<CARD.IS.CARD.STATUS> = YCARD.STATUS
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+        R.CARD.ISSUE<CARD.IS.ACCOUNT> = R.NEW(IBCI.LOCAL.REF)<1,6>
+        CALL GET.ACCT.BRANCH(R.NEW(IBCI.LOCAL.REF)<1,6>,MNEM,YCOMP)
+
+        FN.CARD.ISSUE = "F":MNEM:".CARD.ISSUE"
+        FV.CARD.ISSUE = ""
+        CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+        R.CARD.ISSUE<CARD.IS.ACCOUNT> = R.NEW(IBCI.LOCAL.REF)<1,6>
+        R.CARD.ISSUE<CARD.IS.LOCAL.REF,12> = R.NEW(IBCI.LOCAL.REF)<1,6>
+
+
+        ACCOUNT='' ; CALL F.READ('F':MNEM:'.ACCOUNT',YR.ACCT,ACCOUNT,F.ACCOUNT,ER)
+        R.CARD.ISSUE<CARD.IS.CURRENCY> = YAC.CCY
+    END ELSE
+        FN.CARD.ISSUE = "F.CARD.ISSUE"
+        FV.CARD.ISSUE = ""
+        CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+        R.CARD.ISSUE<CARD.IS.ACCOUNT> = R.NEW(IBCI.CONTA1)
+        R.CARD.ISSUE<CARD.IS.LOCAL.REF,12> = R.NEW(IBCI.CONTA1)
+    END
+*    R.CARD.ISSUE<CARD.IS.CURRENCY> = ACCOUNT<AC.CURRENCY>
+    R.CARD.ISSUE<CARD.IS.CURRENCY> = YAC.CCY
+    R.CARD.ISSUE<CARD.IS.ISSUE.DATE> = R.NEW(IBCI.DATREQ)
+    R.CARD.ISSUE<CARD.IS.EXPIRY.DATE> = R.NEW(IBCI.DATEXP)
+    IF R.NEW(IBCI.LOCAL.REF)<1,4> EQ '' THEN
+        R.CARD.ISSUE<CARD.IS.NAME> = R.NEW(IBCI.NOMECLI)
+    END ELSE
+        R.CARD.ISSUE<CARD.IS.NAME> = R.NEW(IBCI.LOCAL.REF)<1,4>:" ":R.NEW(IBCI.LOCAL.REF)<1,5>
+    END
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,20> = R.NEW(IBCI.FULL.CARD.NO)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,32> = ID.NEW
+
+*** Information data
+
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,1> = R.NEW(IBCI.LOCAL.REF)<1,1>
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,2> = R.NEW(IBCI.SEQPAN)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,3> = R.NEW(IBCI.VERCAR)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,4> = R.NEW(IBCI.REST.CAR)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,6> = R.NEW(IBCI.CPD)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,7> = R.NEW(IBCI.DURPER)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,8> = R.NEW(IBCI.MONTP3)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,9> = R.NEW(IBCI.PLAF.SALD)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,10> = R.NEW(IBCI.IDENTCS)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,11> = R.NEW(IBCI.NUMCON)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,13> = R.NEW(IBCI.TCRU1)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,14> = R.NEW(IBCI.CODAGE1)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,15> = R.NEW(IBCI.LIMES1)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,16> = R.NEW(IBCI.DIA1)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,17> = R.NEW(IBCI.CONTA2)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,18> = R.NEW(IBCI.TCRU2)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,19> = R.NEW(IBCI.CODAGE2)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,20> = R.NEW(IBCI.FULL.CARD.NO)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,21> = R.NEW(IBCI.LIMES2)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,22> = R.NEW(IBCI.DIA2)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,23> = R.NEW(IBCI.NOMECLI)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,24> = R.NEW(IBCI.NOMECLI2)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,26> = R.NEW(IBCI.EMBOSSP)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,27> = R.NEW(IBCI.IMAGEM)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,29> = R.NEW(IBCI.CARPIN)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,30> = R.NEW(IBCI.ENDERCLI)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,33> = R.NEW(IBCI.CODPOST)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,35> = R.NEW(IBCI.ANONASC)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,37> = R.NEW(IBCI.NRCONTACR)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,38> = R.NEW(IBCI.TIT.NTIT)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,44> = R.NEW(IBCI.VIPPRC)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,46> = R.NEW(IBCI.LOCAL.REF)<1,4>
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,47> = R.NEW(IBCI.LOCAL.REF)<1,5>
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,54> = R.NEW(IBCI.LOCAL.REF)<1,2>
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,55> = R.NEW(IBCI.TELECODIG)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,56> = R.NEW(IBCI.NSITCAR)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,58> = R.NEW(IBCI.TIPEMICAR)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,59> = R.NEW(IBCI.NUMCAR.ANT)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,60> = R.NEW(IBCI.BALCENT)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,61> = TODAY
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,62> = R.NEW(IBCI.PARAMETER)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,63> = R.NEW(IBCI.SEXO)
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,66> = R.NEW(IBCI.LOCAL.REF)<1,3>
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,74> = R.NEW(IBCI.LOCAL.REF)<1,16>
+    R.CARD.ISSUE<CARD.IS.LOCAL.REF,67> = R.NEW(IBCI.LOCAL.REF)<1,17>
+    R.CARD.ISSUE<CARD.IS.CURR.NO> = R.NEW(IBCI.CURR.NO)
+    R.CARD.ISSUE<CARD.IS.INPUTTER> = R.NEW(IBCI.INPUTTER)
+    R.CARD.ISSUE<CARD.IS.DATE.TIME> = R.NEW(IBCI.DATE.TIME)
+    R.CARD.ISSUE<CARD.IS.AUTHORISER> = R.NEW(IBCI.AUTHORISER)
+    R.CARD.ISSUE<CARD.IS.CO.CODE> = R.NEW(IBCI.CO.CODE)
+    R.CARD.ISSUE<CARD.IS.DEPT.CODE> = R.NEW(IBCI.DEPT.CODE)
+
+    IF R.NEW(IBCI.CONTA2) GT 0 THEN
+        R.CARD.ISSUE<CARD.IS.LOCAL.REF,51,1> = R.NEW(IBCI.CONTA2)
+    END
+
+*   YCARD.ISSUE.ID = "I":R.NEW(IBCI.PARAMETER)[6,2]:".":R.NEW(IBCI.FULL.CARD.NO)
+*Amended by Mauro Mauane on 20180108
+*Generates Card Number on Authorization
+
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+        YCARD.ISSUE.ID = "P24.":R.NEW(IBCI.FULL.CARD.NO)
+    END ELSE
+
+        GOSUB CREATE.FULL.CARD.NUMBER
+        YCARD.ISSUE.ID = "P24.":R.NEW(IBCI.FULL.CARD.NO)
+
+    END
+
+    IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+
+        CALL GET.ACCT.BRANCH(R.NEW(IBCI.LOCAL.REF)<1,6>,MNEM,YCOMP)
+        FN.CARD.ISSUE = "F":MNEM:".CARD.ISSUE"
+        FV.CARD.ISSUE = ""
+        CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+        WRITE R.CARD.ISSUE TO FV.CARD.ISSUE,YCARD.ISSUE.ID
+
+    END ELSE
+        FN.CARD.ISSUE = "F.CARD.ISSUE"
+        FV.CARD.ISSUE = ""
+        CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+
+*END
+
+        CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+        SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' LIKE ...':YCARD.ISSUE.ID[13,7]:'...'
+        CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+
+
+       * IF CARD.NO GT 0 THEN
+        *    E = 'NUMERO DE CARTAO DUPLICADO. CRIE NOVO CARTAO'
+        *    CALL STORE.END.ERROR
+        *END ELSE
+            WRITE R.CARD.ISSUE TO FV.CARD.ISSUE,YCARD.ISSUE.ID
+       * END
+    END
+    RETURN
+
+***************
+CHECK.FUNCTION:
+***************
+
+* Validation of function entered.  Set FUNCTION to null if in error.
+
+    IF INDEX('V',V$FUNCTION,1) THEN
+        E = 'FUNCTION NOT ALLOWED FOR THIS APPLICATION'
+        CALL ERR
+        V$FUNCTION = ''
+    END
+
+    RETURN
+
+
+
+
+
+*------------- Include from here the new routines to cover the request --------------------*
+NAO.COBRA:
+
+**TEM QUE COBRAR
+    CALL F.READ('F':MNEM:'.ACCOUNT',YR.ACCT,REC.AC,F.AC,ERR)
+    YR.CHARGE.TYPES.NEW = R.NEW(IBCI.LOCAL.REF)<1,7>
+    CALL F.READ('F.FT.COMMISSION.TYPE',YR.CHARGE.TYPES.NEW,REC.CHRG,F.FT.CHRGE,ERR)
+    YPL.ACCT = "PL":REC.CHRG<FT4.CATEGORY.ACCOUNT>
+    YR.TXN.CODE.CR = REC.CHRG<FT4.TXN.CODE.CR>
+    YR.TXN.CODE.DR = REC.CHRG<FT4.TXN.CODE.DR>
+    YTEXT = REC.CHRG<FT4.SHORT.DESCR>
+    YTEXT1 = FIELD(YTEXT,@VM,1)
+
+    FN.SB.UNPR.CHRG = 'F.SB.UNPROCESSED.CHARGES'
+    F.SB.UNPR.CHRG = ''
+    CALL OPF(FN.SB.UNPR.CHRG,F.SB.UNPR.CHRG)
+
+    R.UNPCHRG = '' ; R.UNPCHRG.ERR = ''
+    CALL F.READ('F.SB.UNPROCESSED.CHARGES',YR.ACCT,R.UNPCHRG,F.SB.UNPROCESSED.CHARGES,R.UNPCHRG.ERR)
+    YR.QTD.CCY = R.UNPCHRG<SB.UNPCHRG.CHRG.CURRENCY>
+    YR.QTD.REG = DCOUNT(YR.QTD.CCY,@VM)
+    IF YR.QTD.REG EQ '0' THEN
+        R.UNPCHRG<SB.UNPCHRG.CHRG.CURRENCY> = REC.AC<AC.CURRENCY>
+        R.UNPCHRG<SB.UNPCHRG.CHRG.AMOUNT> = R.NEW(IBCI.CHARGES)
+        R.UNPCHRG<SB.UNPCHRG.CHRG.DATE> = TODAY
+        R.UNPCHRG<SB.UNPCHRG.CHRG.ACCOUNT> = YPL.ACCT
+        R.UNPCHRG<SB.UNPCHRG.CHRG.COD.DR> = YR.TXN.CODE.DR
+        R.UNPCHRG<SB.UNPCHRG.CHRG.COD.CR> = YR.TXN.CODE.CR
+        R.UNPCHRG<SB.UNPCHRG.ORIGEM> = TODAY:'-':YTEXT1:'-':ID.NEW
+    END ELSE
+        YR.QTD.REG +=1
+        R.UNPCHRG<SB.UNPCHRG.CHRG.CURRENCY,YR.QTD.REG> = REC.AC<AC.CURRENCY>
+        R.UNPCHRG<SB.UNPCHRG.CHRG.AMOUNT,YR.QTD.REG> = R.NEW(IBCI.CHARGES)
+        R.UNPCHRG<SB.UNPCHRG.CHRG.DATE,YR.QTD.REG> = TODAY
+        R.UNPCHRG<SB.UNPCHRG.CHRG.ACCOUNT,YR.QTD.REG> = YPL.ACCT
+        R.UNPCHRG<SB.UNPCHRG.CHRG.COD.DR,YR.QTD.REG> = YR.TXN.CODE.DR
+        R.UNPCHRG<SB.UNPCHRG.CHRG.COD.CR,YR.QTD.REG> = YR.TXN.CODE.CR
+        R.UNPCHRG<SB.UNPCHRG.ORIGEM,YR.QTD.REG> = TODAY:'-':YTEXT1:'-':ID.NEW
+    END
+    WRITE R.UNPCHRG TO F.SB.UNPR.CHRG,YR.ACCT
+
+    RETURN
+
+
+*-----------------------
+CREATE.FULL.CARD.NUMBER:
+*-----------------------
+
+    CARD.PARAM = R.NEW(IBCI.PARAMETER)
+    CALL F.READ(FN.SB.PARAMETRO.IB,CARD.PARAM,R.CARD.PARAM,FV.SB.PARAMETRO.IB,PARAM.ERR)
+*   CARD.ID = "I":R.CARD.PARAM<IBPARAM.TIPROD>
+    CARD.ID = "P24"
+
+*---- Aquisicao da sequencia do cartao -------*
+
+    READU R.CARD.TYPE FROM FV.CARD.TYPE,CARD.ID ELSE R.CARD.TYPE = ""
+    YGET.POS1 = R.CARD.TYPE<CARD.TYPE.LOCAL.REF,5>
+    LOCATE ID.COMPANY IN YGET.POS1<1,1,1> SETTING YPOS THEN
+        YGET.POS2 = R.CARD.TYPE<CARD.TYPE.LOCAL.REF,6>
+        YCARD.SEQ = YGET.POS2<1,1,YPOS> + 1
+        YCARD.SEQ = FMT(YCARD.SEQ,"7'0'R")
+    END
+
+
+
+*---- Actualizacao da tabela de sequencia de cartoes -----*
+
+    R.CARD.TYPE<CARD.TYPE.LOCAL.REF,6,YPOS> = YCARD.SEQ
+    WRITE R.CARD.TYPE ON FV.CARD.TYPE,CARD.ID
+
+*  CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+*  SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH CARD.TYPE.NO LIKE P24...':YCARD.SEQ:'...'
+*  CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+
+*  IF CARD.NO EQ 1 THEN
+*     GOSUB CREATE.FULL.CARD.NUMBER
+*  END ELSE
+
+
+*---- Inicio do calculo do check digit do cartao
+
+    YBIN = R.CARD.PARAM<IBPARAM.BIN>
+    YEXBIN = R.CARD.PARAM<IBPARAM.EXBIN>
+
+    YCARD.NUMBER = YBIN:YEXBIN:YCARD.SEQ
+
+    YR.NO = LEN(YCARD.NUMBER)
+    YR.VAL = 0
+
+    IF YR.NO EQ 15 THEN
+
+        FOR I = 0 TO (YR.NO - 1) STEP 2
+            YR.TMP1 = 0 ; YR.TMP2 = 0 ; YR.TMP3 = 0
+            YR.TMP1 = YCARD.NUMBER[YR.NO-I,1] * 2
+
+            FOR J = 1 TO LEN(YR.TMP1)
+                YR.TMP2 = YR.TMP2 + YR.TMP1[J,1]
+            NEXT J
+
+            IF (YR.NO - I) > 1 THEN
+                YR.TMP3 = YR.TMP2 + YCARD.NUMBER[(YR.NO - I) - 1,1]
+            END ELSE
+                IF MOD(YR.NO,2) > 0 THEN
+                    YR.TMP3 = YR.TMP2
+                END
+            END
+
+            YR.VAL = YR.VAL + YR.TMP3
+
+        NEXT I
+
+        LOOP
+        WHILE YR.VAL > 0
+            YR.VAL = YR.VAL - 10
+        REPEAT
+
+        YR.CHK.DIGIT = YR.VAL * -1
+
+        YFULL.CARD.NUMBER = YCARD.NUMBER:YR.CHK.DIGIT
+
+        R.NEW(IBCI.FULL.CARD.NO) = YFULL.CARD.NUMBER
+        R.NEW(IBCI.NUMCAR) = YCARD.SEQ
+
+
+    END ELSE
+        ETEXT = 'ERRO NO BIN, BALCAO OU SEQUENCIA'
+    END
+*END
+    RETURN
+
+
+
+*----------
+INITIALISE:
+*----------
+
+
+    F.ACCOUNT='' ; CALL OPF('F.ACCOUNT',F.ACCOUNT)
+    F.CARD.CHARGE='' ; CALL OPF('F.CARD.CHARGE',F.CARD.CHARGE)
+    F.CARD.TYPE='' ; CALL OPF('F.CARD.TYPE',F.CARD.TYPE)
+    ACCOUNT=''      ;* used in name validation
+    ER=''
+    LCY.AMT = ""    ;* GB9800263
+
+    R.CARD.TYPE = ""
+    FN.CARD.TYPE = "F.CARD.TYPE"
+    FV.CARD.TYPE = ""
+    CALL OPF(FN.CARD.TYPE,FV.CARD.TYPE)
+
+    FN.CUSTOMER = 'FBNK.CUSTOMER'
+    FV.CUSTOMER = ''
+    CALL OPF(FN.CUSTOMER,FV.CUSTOMER)
+
+    FN.SB.PARAMETRO.IB = 'F.SB.PARAMETRO.IB'
+    FV.SB.PARAMETRO.IB = ''
+    CALL OPF(FN.SB.PARAMETRO.IB,FV.SB.PARAMETRO.IB)
+*
+    FN.POSTING.RESTRICT = 'F.POSTING.RESTRICT' ; F.POSTING.RESTRICT = ''
+    CALL OPF(FN.POSTING.RESTRICT,F.POSTING.RESTRICT)
+*
+    APPLIC.NAME = 'FUNDS.TRANSFER' ; YFUNC = 'I' ; YPROC = 'PROCESS' ; OFS.OPTION = '' ; GTS.MODE = 1
+    YVER = 'FUNDS.TRANSFER,IB.OFS' ; OFS.SOURCE = 'GENERIC.OFS.PROCESS' ; YNO.OF.AUTH = 0
+
+    RETURN
+
+
+
+
+******************
+DEFINE.PARAMETERS:
+******************
+
+
+    ID.CHECKFILE = "" ; ID.CONCATFILE ="AL"
+    MAT F = "" ; MAT N = "" ; MAT T = ""
+    MAT CHECKFILE = "" ; MAT CONCATFILE = ""
+
+    ID.F = 'CARD.ID'
+    ID.N='16.1'
+    ID.T='A'
+    Z = 0
+
+
+*--- Detalhes de CARTOES
+
+    Z += 1 ; F(Z)="NUMCAR" ; N(Z) ="7" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="SEQPAN" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="VERCAR" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="REST.CAR" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CPD" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="DURPER" ; N(Z) ="2" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="MONTP3" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="PLAF.SALD" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="IDENTCS" ; N(Z) ="8" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="NUMCON" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CONTA1" ; N(Z) ="15" ; T(Z)="ANY"
+    CHECKFILE(Z) = "ACCOUNT":FM:AC.SHORT.TITLE
+    Z += 1 ; F(Z)="TCRU1" ; N(Z) ="2" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CODAGE1" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="LIMES1" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="DIA1" ; N(Z) ="2" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CONTA2" ; N(Z) ="15" ; T(Z)="ANY"
+    CHECKFILE(Z) = "ACCOUNT":FM:AC.SHORT.TITLE
+    Z += 1 ; F(Z)="TCRU2" ; N(Z) ="2" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CODAGE2" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="LIMES2" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="DIA2" ; N(Z) ="2" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="NOMECLI" ; N(Z) ="27" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="NOMECLI2" ; N(Z) ="27" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="EMBOSSP" ; N(Z) ="23" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="IMAGEM" ; N(Z) ="15" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="IDEXTIT" ; N(Z) ="15" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CARPIN" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="ENDERCLI" ; N(Z) ="40" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="LOCCLI" ; N(Z) ="30" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="CODPOST" ; N(Z) ="35" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="SEXO" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="ANONASC" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="ACTCLI" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="NRCONTACR" ; N(Z) ="15" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="TIT.NTIT" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="VIPPRC" ; N(Z) ="3" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="TELECODIG" ; N(Z) ="4" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="NSITCAR" ; N(Z) ="2" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="IDPINBLOCK" ; N(Z) ="7" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="TIPEMICAR" ; N(Z) ="1" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="NUMCAR.ANT" ; N(Z) ="7" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="DATREQ" ; N(Z) ="8" ; T(Z)="D"
+    Z += 1 ; F(Z)="DATEXP" ; N(Z) ="8" ; T(Z)="D"
+    Z += 1 ; F(Z)="CHARGES" ; N(Z) ="19" ; T(Z)="AMT"
+    Z += 1 ; F(Z)="CHARGE.DATE" ; N(Z) ="8" ; T(Z)="D"
+    Z += 1 ; F(Z)="FULL.CARD.NO" ; N(Z) ="19" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="PARAMETER" ; N(Z) ="7" ; T(Z)="ANY"
+    Z += 1 ; F(Z)="BALCENT" ; N(Z)="9" ; T(Z)="A"
+    CHECKFILE(Z) = "COMPANY":FM:EB.COM.COMPANY.NAME
+    Z += 1 ; F(Z)="DATAUTH" ; N(Z)="8" ; T(Z)="D"
+    Z += 1 ; F(Z)="CHARGE.TYPE" ; N(Z)="12" ; T(Z)="ANY"
+    CHECKFILE(Z) = "FT.COMMISSION.TYPE":FM:FT4.DESCRIPTION
+    Z += 1 ; F(Z)='XX.LOCAL.REF' ; N(Z)='35' ; T(Z)='A'
+    Z += 1 ; F(Z)="RESERVED.2" ; N(Z)="1" ; T(Z)<3>="NOINPUT"
+    Z += 1 ; F(Z)="RESERVED.1" ; N(Z)="1" ; T(Z)<3>="NOINPUT"
+    Z += 1 ; F(Z)="XX.STMT.NO" ; N(Z)="25" ; T(Z)="ANY" ; T(Z)<3>='EXTERN'
+    Z += 1 ; F(Z)="XX.OVERRIDE" ; N(Z)="35" ; T(Z)="ANY" ; T(Z)<3>='EXTERN'
+
+
+
+***!      CHECKFILE(1)='ACCOUNT':FM:AC.SHORT.TITLE
+
+    V=Z+9
+
+    RETURN
+
+
+
+
+************
+ACCOUNT.VAL:
+***********
+
+
+    CARD.ID = R.NEW(IBCI.PARAMETER)
+    CARD.ID = FIELD(CARD.ID,'.',2)
+
+    IF ACCOUNT.ID#'' THEN
+
+        YCUST = ''
+        CALL ACCOUNT.DBR(AC.CUSTOMER,ACCOUNT.ID,YCUST)
+
+        IF R.NEW(IBCI.PARAMETER) NE 'ECBI.CU' THEN
+            IF ETEXT THEN
+                ER = 'ACCOUNT NOT IN THIS COMPANY'
+                RETURN
+            END
+        END
+
+        ACCOUNT='' ; CALL F.READ('F.ACCOUNT',ACCOUNT.ID,ACCOUNT,F.ACCOUNT,ER)
+
+        IF ER='' THEN
+
+            IF CARD.TYPE<CARD.TYPE.CATEGORY>#'' THEN
+
+                LOCATE ACCOUNT<AC.CATEGORY> IN CARD.TYPE<CARD.TYPE.CATEGORY,1> SETTING V$ ELSE
+                    ER='ACCOUNT CATEGORY INCORRECT'
+                END
+
+                IF ACCOUNT<AC.CURRENCY> <> LCCY AND ALLOW.FCY.ACCT[1,1] NE 'Y' THEN
+                    ER='ACCOUNT CURRENCY MUST BE LOCAL'
+                END
+
+            END
+*
+
+            GOSUB CALCULATE.CHARGES
+            YR.ACCT.BAL = ACCOUNT<AC.ONLINE.CLEARED.BAL>
+            CHARGES = R.NEW(IBCI.CHARGES)
+*  IF CHARGES GT YR.ACCT.BAL THEN
+*     ER = 'NAO TEM SALDO SUFICIENTE. VALOR A PAGAR ':YR.CHARGE.AMT:YR.MOEDA
+* END
+
+
+
+        END ELSE
+
+            ER='MISSING & RECORD -&':FM:'ACCOUNT':VM:ACCOUNT.ID
+
+        END
+    END
+
+    RETURN
+
+
+
+
+***************
+ISSUE.DATE.VAL:
+***************
+    IF ISSUE.DATE='' THEN ISSUE.DATE=TODAY
+
+    YY = ISSUE.DATE[1,4]
+    YY = YY+5
+    MM = ISSUE.DATE[5,2]
+    DD = ISSUE.DATE[7,2]
+    IF MM EQ "02" THEN
+        DD = 28
+    END ELSE
+        DD = 30
+    END
+    YDATE.EXPIRACAO = YY:MM:DD
+    R.NEW(IBCI.DATEXP) = YDATE.EXPIRACAO
+
+    RETURN
+
+
+
+*********
+NAME.VAL:
+*********
+
+
+    IF NAME='' THEN
+        IF AV=1 THEN
+            IF ACCOUNT='' THEN
+                IF R.NEW(IBCI.CONTA1)#'' THEN ACCOUNT.ID=R.NEW(IBCI.CONTA1) ; CALL F.READ('F.ACCOUNT',ACCOUNT.ID,ACCOUNT,F.ACCOUNT,ER) ; ER=''
+            END
+            NAME=ACCOUNT<AC.SHORT.TITLE>
+        END ELSE
+            ER='INPUT MISSING'
+        END
+    END
+
+    RETURN
+
+
+
+**********************
+*CANCELLATION.DATE.VAL:
+**********************
+
+
+*   IF CANCELLATION.DATE#'' THEN
+
+*       BEGIN CASE
+
+*       CASE CANCELLATION.DATE LT ISSUE.DATE
+*          ER='EARLIER THAN ISSUE DATE_2'
+
+*       CASE CANCELLATION.DATE GT EXPIRY.DATE AND EXPIRY.DATE#''
+*           ER='LATER THAN EXPIRY DATE'
+
+*       END CASE
+
+*   END
+
+*   RETURN
+
+
+
+************
+CHARGES.VAL:
+************
+
+    IF CHARGES#0 THEN
+
+        IF R.NEW(IBCI.PARAMETER) EQ 'ECBI.CU' THEN
+            CARD.TYPE.ID = 'P24'
+            R.NEW(IBCI.CONTA1) = R.NEW(IBCI.LOCAL.REF)<1,6>
+        END ELSE
+* CARD.TYPE.ID = R.NEW(IBCI.PARAMETER)
+* CARD.TYPE.ID = FIELD(CARD.TYPE.ID,'.',2)
+            CARD.TYPE.ID = 'P24'
+        END
+        CARD.CHARGE='' ; CALL F.READ('F.CARD.CHARGE',CARD.TYPE.ID,CARD.CHARGE,F.CARD.CHARGE,ER)
+
+        IF ER='' THEN
+
+            IF CHARGES='' THEN
+
+                CHARGES=CARD.CHARGE<CARD.CHG.ISSUE.CHARGE>
+
+
+*------ Convert to FCY if relevant ------------*
+
+
+                IF ACCOUNT<AC.CURRENCY> <> LCCY AND CHARGES THEN
+                    LCY.AMT = CHARGES
+                    YFAMT = ""
+                    YFCY = ACCOUNT<AC.CURRENCY>
+                    YRATE = ""
+                    YMARKET = 1
+                    YLAMT = CHARGES
+                    YDIF.AMT = ""
+                    YDIF.PCT = ""
+                    CALL MIDDLE.RATE.CONV.CHECK (YFAMT,YFCY,YRATE,YMARKET,YLAMT,YDIF.AMT,YDIF.PCT)
+                    CHARGES = YFAMT
+                END
+            END
+        END ELSE
+            IF CHARGES THEN   ;* entered charges cannot be processed
+                ER='NO CHARGES DEFINED FOR TYPE &':FM:CARD.TYPE.ID
+            END ELSE          ;* no default charges
+                ER=''
+            END
+        END
+    END
+
+    RETURN
+
+
+
+****************
+CHARGE.DATE.VAL:
+****************
+
+
+    RETURN
+
+
+
+
+*--------------------
+GET.CUSTOMER.DETAILS:
+*--------------------
+
+    CALL F.READ(FN.CUSTOMER,YCUST,R.CLI,FV.CUSTOMER,CU.ERR)
+    YNOME = R.CLI<EB.CUS.SHORT.NAME>
+    YSEXO=R.CLI<EB.CUS.GENDER>
+    IF R.CLI<EB.CUS.STREET,1> THEN
+        YMORADA = R.CLI<EB.CUS.STREET,1>
+    END
+
+    IF  R.CLI<EB.CUS.STREET,2> THEN
+        YMORADA =  R.CLI<EB.CUS.STREET,2>
+    END
+
+    YLOCALIDADE = R.CLI<EB.CUS.TOWN.COUNTRY>
+
+    R.NEW(IBCI.NOMECLI) = YNOME
+    R.NEW(IBCI.NOMECLI2) = "                          "
+    R.NEW(IBCI.ENDERCLI) = YMORADA
+    R.NEW(IBCI.LOCCLI) = YLOCALIDADE
+    R.NEW(IBCI.CODPOST) = YLOCALIDADE
+    R.NEW(IBCI.SEXO) = YSEXO
+
+    RETURN
+
+
+
+
+
+
+**********
+OVERRIDES:
+**********
+
+
+    IF CHARGE.DATE#'' THEN
+
+        BEGIN CASE
+
+        CASE CHARGE.DATE GT R.DATES(EB.DAT.FORW.VALUE.MINIMUM)
+            TEXT='FORWARD VALUE DATE EXCEEDED'
+            AF=IBCI.CHARGE.DATE ; CALL STORE.OVERRIDE(CURR.NO)
+
+        CASE CHARGE.DATE LT R.DATES(EB.DAT.BACK.VALUE.MINIMUM)
+            TEXT='BACK VALUE DATE EXCEEDED'
+            AF=IBCI.CHARGE.DATE ; CALL STORE.OVERRIDE(CURR.NO)
+
+        END CASE
+
+        DAYTYPE='' ; CALL AWD('',CHARGE.DATE,DAYTYPE)
+        IF DAYTYPE='H' THEN
+            TEXT='CHARGE DATE IS NOT A WORKING DAY'
+            AF=IBCI.CHARGE.DATE ; CALL STORE.OVERRIDE(CURR.NO)
+        END
+    END
+*
+    CALL GET.ACCT.BRANCH(ACCOUNT.ID,MNEM,YCOMP)
+    FN.ACCOUNT = "F":MNEM:".ACCOUNT"
+    F.ACCOUNT = ""
+    CALL OPF(FN.ACCOUNT,F.ACCOUNT)
+    CALL F.READ(FN.ACCOUNT,ACCOUNT.ID,R.ACCT,F.ACCOUNT,YERR)
+    POST.REST = R.ACCT<AC.POSTING.RESTRICT>
+    LOCATE 21 IN POST.REST<1,1> SETTING CPOS THEN
+        CALL F.READ(FN.POSTING.RESTRICT,21,R.REST,F.POSTING.RESTRICT,YERR)
+        IF R.REST<AC.POS.DESCRIPTION,2> THEN
+            YR.REST = R.REST<AC.POS.DESCRIPTION,2>
+        END ELSE
+            YR.REST = R.REST<AC.POS.DESCRIPTION,1>
+        END
+        TEXT = "POSTING.RESTRICT":FM:ACCOUNT.ID:VM:YR.REST
+        Y.OV.IN = DCOUNT(R.NEW(IBCI.OVERRIDE),VM) + 1
+        CALL STORE.OVERRIDE(Y.OV.IN)
+    END
+*
+    RETURN
+
+CALCULATE.CHARGES:
+    CALL GET.ACCT.BRANCH(ACCOUNT.ID,MNEM,YCOMP)
+
+    IF MNEM EQ 'S96' THEN
+        R.NEW(IBCI.CHARGES) = 0
+    END ELSE
+        R.NEW(IBCI.CHARGE.DATE) = TODAY
+        FN.ACCOUNT = "F":MNEM:".ACCOUNT"
+        F.ACCOUNT = ""
+        CALL OPF(FN.ACCOUNT,F.ACCOUNT)
+        READ R.ACCT FROM F.ACCOUNT,ACCOUNT.ID THEN
+            YR.COD.SC = R.ACCT<AC.LOCAL.REF,51>
+            YR.MOEDA = R.ACCT<AC.CURRENCY>
+        END
+        YR.BSTM.SPECIAL.CONDITIONS.ID = YR.COD.SC
+        GOSUB READ.BSTM.SPECIAL.CONDITIONS.FILE
+
+        IF ER THEN RETURN
+        YR.PRODUCT = 'FT'
+        LOCATE YR.PRODUCT IN R.BSTM.SPECIAL.CONDITIONS<SB.SC.APPLICATION,1> SETTING APP.POS ELSE
+            RETURN
+        END
+
+        YR.CHARGE.TYPES = R.NEW(IBCI.LOCAL.REF)<1,7>
+        IF YR.CHARGE.TYPES.NEW EQ '' THEN
+            YR.CHARGE.TYPES.NEW = YR.CHARGE.TYPES
+        END
+        LOCATE YR.CHARGE.TYPES IN R.BSTM.SPECIAL.CONDITIONS<SB.SC.DEFAULT.TXN,APP.POS,1> SETTING CHARGE.POS ELSE NULL
+        YR.CHARGE.TYPES.NEW = R.BSTM.SPECIAL.CONDITIONS<SB.SC.SPECIAL.TXN,APP.POS,CHARGE.POS>
+        CALL F.READ('F.FT.COMMISSION.TYPE',YR.CHARGE.TYPES.NEW,REC.CHRG,F.FT.CHRGE,ERR)
+        CHRG.CCY = REC.CHRG<FT4.CURRENCY>
+        LOCATE YR.MOEDA IN CHRG.CCY<1,1> SETTING POS ELSE NULL
+        YR.CHARGE.AMT = REC.CHRG<FT4.FLAT.AMT,POS>
+        R.NEW(IBCI.CHARGES) = YR.CHARGE.AMT
+
+*By Dercio - 20170126 - Incise the local.table SPECIAL.CHARGE and LRT to save the special cherge code used.
+        R.NEW(IBCI.LOCAL.REF)<1,13> = YR.CHARGE.TYPES.NEW
+
+    END
+    RETURN
+
+READ.BSTM.SPECIAL.CONDITIONS.FILE:
+    ER = ""
+
+    CALL F.READ("F.SB.SPECIAL.CONDITIONS",YR.BSTM.SPECIAL.CONDITIONS.ID,R.BSTM.SPECIAL.CONDITIONS,F.SB.SPECIAL.CONDITIONS,ER)
+    RETURN
+
+*********************************************************************
+*               This is the Final End Statement                     *
+*********************************************************************
+
+
+END

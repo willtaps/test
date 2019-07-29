@@ -1,0 +1,514 @@
+*-----------------------------------------------------------------------------
+* <Rating>-32</Rating>
+*-----------------------------------------------------------------------------
+      SUBROUTINE GIC.LOAD.EDST
+*
+*********************************************************************
+* This program will read a Flat file, that was FTP'd into a Unix    *
+* directory by Integrator, coming from SIBS. This pgm will take     *
+* the records on the flat file and write them into the application  *
+* GIC.CARD.EDST. This data will be analysed at a later stage.       *
+*********************************************************************
+*
+*  First Release :  30 November 2001
+*  Developed for :  BSTM Mozambique
+*  Developed By  :  Herman Van Brakel
+*
+*********************************************************************
+*
+$INCLUDE I_COMMON
+$INCLUDE I_EQUATE
+$INSERT I_F.GIC.CARD.EDST
+*
+*********************************************************************
+*                    Main processing section                        *
+*********************************************************************
+*
+      GOSUB INITIALISE
+*
+      GOSUB MOVE.OLD.HISTORY
+*
+      IF ETEXT EQ "" THEN
+         GOSUB PROCESS
+      END ELSE
+         PRINT ' *** ERROR *** ':ETEXT
+         RETURN
+      END
+*
+      CLR.CMD = 'CLEAR.FILE EDST.IN'
+      EXECUTE CLR.CMD
+*
+      RETURN
+*
+*********************************************************************
+INITIALISE:
+***********
+*
+      CARD.EDST.FILE = 'F.GIC.CARD.EDST'
+      F.GIC.CARD.EDST = ''
+      CALL OPF(CARD.EDST.FILE, F.GIC.CARD.EDST)
+*
+      EDST.IN.FILE = 'EDST.IN'
+      EDST.IN = ''
+      CALL OPF(EDST.IN.FILE, EDST.IN)
+      EDST.ID = '' ; EDST.IN.REC = ''
+*
+      EDST.HIS.FILE = 'F.GIC.CARD.EDST$HIS'
+      F.GIC.CARD.EDST$HIS = ''
+      CALL OPF(EDST.HIS.FILE, F.GIC.CARD.EDST$HIS)
+*
+      TMP.IDLOG = ''
+      TMP.NRLOG = ''
+      TMP.IDPROP = ''
+      YR.NR = ''
+*
+      RETURN
+*
+*********************************************************************
+PROCESS:
+********
+*
+      REC.ID = '0'
+      REC.TYPE = ''
+      EDST.REC = ''
+*
+      SELECT.EDST = 'SSELECT ':EDST.IN.FILE:' BY @ID'
+*
+      EDST.LIST = '' ; NO.SELECTED = ''
+      CALL EB.READLIST(SELECT.EDST,EDST.LIST,'',NO.SELECTED,'')
+*
+      IF EDST.LIST = '' THEN RETURN
+      FOR J = 1 TO NO.SELECTED
+         EDST.ID = EDST.LIST<J> ; ER = ''
+         CALL F.READ(EDST.IN.FILE,EDST.ID,EDST.IN.REC,EDST.IN,ER)
+         IF ER THEN ETEXT = ' ERROR READING RECORD FROM EDST FILE '
+         CONVERT VM TO FM IN EDST.IN.REC
+         Y = DCOUNT(EDST.IN.REC,@FM)
+         FOR I = 1 TO Y
+            REC.ID += 1
+            SEQ.REC = ''
+            SEQ.REC = EDST.IN.REC<I>
+            GOSUB WRITE.REC
+         NEXT I
+      NEXT J
+*
+      RETURN
+*
+*********************************************************************
+* This section will determine the Record Type, by reading the first *
+* character of the Record. Control will be passed to the parapraph  *
+* that will populate the specific type of record. The reason for    *
+* this, is the fact that different record types use different fields*
+* to populate in the Globus application. Once control has been retur*
+* ed to this section, the record will be written to the Appl.       *
+*********************************************************************
+WRITE.REC:
+**********
+*
+      REC.TYPE = SEQ.REC[1,1]            ; * The TYPE of Record Received
+      IF REC.TYPE EQ '0' THEN            ; * 0 Indicates Header Record
+         REC.ID -= 1                     ; * Decrease Rec Id if Header
+         RETURN
+      END ELSE
+         IF REC.TYPE EQ '9' THEN         ; * 9 Indicates Trailer Record
+            REC.ID -= 1
+            RETURN
+         END
+      END
+*
+      BEGIN CASE
+         CASE REC.TYPE EQ '1'
+            GOSUB BANK.CARDS
+         CASE REC.TYPE EQ '2'
+            GOSUB BANK.NIBS
+         CASE REC.TYPE EQ '3'
+            GOSUB MERCH.COMP
+         CASE REC.TYPE EQ '4'
+            GOSUB EUROCHEQUES
+         CASE REC.TYPE EQ '5'
+            GOSUB CLEARING
+         CASE REC.TYPE EQ '6'
+            GOSUB ACCT.MOVE
+      END CASE
+      TMP.IDLOG = ''
+      TMP.NRLOG = ''
+      TMP.IDPROP = ''
+      TMP.DTHORA.3 = ''
+      TMP.DTHORA.6 = ''
+      TMP.IDLOG = SEQ.REC[3,4]
+      TMP.NRLOG = SEQ.REC[7,8]
+      TMP.IDPROP = SEQ.REC[51,7]
+      TMP.DTHORA.6 = SEQ.REC[21,8]
+      TMP.DTHORA.3 = SEQ.REC[74,8]
+      IF REC.TYPE EQ '3' THEN
+* Correccao para incorporar registos do tipo-3, relacionados
+* com fecho do POS via EDST, antes estes registos nao estavam
+* sendo processados por sobreposicao do Id.
+*         TRACE.NO = TMP.IDLOG:TMP.IDPROP
+         TRACE.NO = TMP.IDLOG:TMP.DTHORA.3
+      END
+      ELSE
+         IF REC.TYPE EQ '6' THEN
+            TRACE.NO = TMP.IDLOG:TMP.DTHORA.6
+         END ELSE
+            TRACE.NO = TMP.IDLOG:TMP.NRLOG
+         END
+      END
+      EDST.WRITE.ID = TRACE.NO
+      EDST.WRITE.ID = CHANGE(EDST.WRITE.ID,' ','')
+*
+      YR.NR += 1
+      WRDEOK = 1
+      WRITE EDST.REC TO F.GIC.CARD.EDST, YR.NR:EDST.WRITE.ID ON ERROR WRDEOK = 0; IF WRDEOK THEN
+         ETEXT = 'WRITE TO FILE COMPLETE'
+      END
+*
+      EDST.REC = ''
+*
+      RETURN
+*
+******************************************************************
+BANK.CARDS:
+***********
+******************************************************************
+* When Control is passed to this paragraph, it means that the    *
+* Record Type is '1', which indicates a detail record, and that  *
+* the Transaction that SIBS is reporting on was done with a Bank *
+* Card. The fields listed below only apply when Record Type = 1. *
+******************************************************************
+*
+      EDST.REC<GIC.EDST.REG.TYPE> = SEQ.REC[1,1]   ; * FLD 1
+      EDST.REC<GIC.EDST.APLICPDD> = SEQ.REC[2,1]   ; * FLD 2
+      EDST.REC<GIC.EDST.IDLOG> = SEQ.REC[3,4]      ; * FLD 3
+      EDST.REC<GIC.EDST.NRLOG> = SEQ.REC[7,8]      ; * FLD 4
+      EDST.REC<GIC.EDST.TPROC> = SEQ.REC[15,1]     ; * FLD 5
+      EDST.REC<GIC.EDST.MODENV> = SEQ.REC[16,1]
+      EDST.REC<GIC.EDST.DHMSG> = SEQ.REC[17,14]
+      EDST.REC<GIC.EDST.CODRESP> = SEQ.REC[31,1]
+      EDST.REC<GIC.EDST.NRIDRESP> = SEQ.REC[32,14]
+      EDST.REC<GIC.EDST.TIPOTERM> = SEQ.REC[46,1]  ; * FLD 10
+      EDST.REC<GIC.EDST.BANAPOIO> = SEQ.REC[47,4]
+      EDST.REC<GIC.EDST.IDPROP> = SEQ.REC[51,7]
+      EDST.REC<GIC.EDST.IDTERMINAL> = SEQ.REC[58,10]
+      EDST.REC<GIC.EDST.DTHORA> = SEQ.REC[68,14]
+      EDST.REC<GIC.EDST.IDPERLOCAL> = SEQ.REC[82,3]          ; * FLD 15
+      EDST.REC<GIC.EDST.NUMREGLOC> = SEQ.REC[85,5]
+      EDST.REC<GIC.EDST.LOCTERM> = SEQ.REC[90,40]
+      EDST.REC<GIC.EDST.DISTCONC> = SEQ.REC[130,4]
+      EDST.REC<GIC.EDST.MCC> = SEQ.REC[134,4]
+      EDST.REC<GIC.EDST.CODPAIS> = SEQ.REC[138,3]  ; * FLD 20
+*
+      EDST.REC<GIC.EDST.BIN> = SEQ.REC[141,6]
+      EDST.REC<GIC.EDST.EXBIN> = SEQ.REC[147,2]
+      EDST.REC<GIC.EDST.CARD.NUM> = SEQ.REC[149,7]
+      EDST.REC<GIC.EDST.SEQPAN> = SEQ.REC[156,1]
+      EDST.REC<GIC.EDST.CONTA> = SEQ.REC[157,15]   ; * FLD 25
+      EDST.REC<GIC.EDST.SEQMOV> = SEQ.REC[172,2]
+      EDST.REC<GIC.EDST.TIPOAUT> = SEQ.REC[174,2]
+      EDST.REC<GIC.EDST.CODTRN> = SEQ.REC[176,2]
+      EDST.REC<GIC.EDST.INDEST.R> = SEQ.REC[178,1]
+      EDST.REC<GIC.EDST.MONTANTE.1> = SEQ.REC[179,13]        ; * FLD 30
+      EDST.REC<GIC.EDST.MONT1.SIGN> = SEQ.REC[192,1]
+      EDST.REC<GIC.EDST.TAXACLI.1> = SEQ.REC[193,7]
+      EDST.REC<GIC.EDST.TAX1.SIGN> = SEQ.REC[200,1]
+      EDST.REC<GIC.EDST.COMEMI.1> = SEQ.REC[201,11]
+      EDST.REC<GIC.EDST.EMI1.SIGN> = SEQ.REC[212,1]          ; * FLD 35
+      EDST.REC<GIC.EDST.COMPROP.1> = SEQ.REC[213,11]
+      EDST.REC<GIC.EDST.PROP1.SIGN> = SEQ.REC[224,1]
+      EDST.REC<GIC.EDST.MONTANTE.2> = SEQ.REC[225,13]
+      EDST.REC<GIC.EDST.MONT2.SIGN> = SEQ.REC[238,1]
+      EDST.REC<GIC.EDST.TAXACLI.2> = SEQ.REC[239,7]          ; * FLD 40
+      EDST.REC<GIC.EDST.TAX2.SIGN> = SEQ.REC[246,1]
+      EDST.REC<GIC.EDST.TARINT.1> = SEQ.REC[247,3]
+      EDST.REC<GIC.EDST.COMEMI.2> = SEQ.REC[250,11]
+      EDST.REC<GIC.EDST.EMI2.SIGN> = SEQ.REC[261,1]
+      EDST.REC<GIC.EDST.TARINT.2> = SEQ.REC[262,3]           ; * FLD 45
+      EDST.REC<GIC.EDST.COMPROP.2> = SEQ.REC[265,11]
+      EDST.REC<GIC.EDST.PROP2.SIGN> = SEQ.REC[276,1]
+      EDST.REC<GIC.EDST.CODMOEDA> = SEQ.REC[277,3]
+      EDST.REC<GIC.EDST.TARSIBS> = SEQ.REC[280,3]
+      EDST.REC<GIC.EDST.CODCOM> = SEQ.REC[283,2]   ; * Fld 50
+      EDST.REC<GIC.EDST.FILLER.1> = SEQ.REC[285,70]
+      EDST.REC<GIC.EDST.APLICPDD.O> = SEQ.REC[355,1]
+      EDST.REC<GIC.EDST.IDLOG.O> = SEQ.REC[356,4]
+      EDST.REC<GIC.EDST.NRLOG.O> = SEQ.REC[360,8]
+      EDST.REC<GIC.EDST.IDOCUMENT> = SEQ.REC[368,10]         ; * FLD 55
+*
+      RETURN
+*
+*********************************************************************
+BANK.NIBS:
+**********
+*********************************************************************
+* Control in this paragraph means the Record Type of the detail rec *
+* ord was 2, indicating that the Transaction being reported on was  *
+* done in favour of a Bank or Client not included in the Multibank  *
+* network. The following fields apply only to type 2 records.       *
+*********************************************************************
+*
+      EDST.REC<GIC.EDST.REG.TYPE> = SEQ.REC[1,1]   ; * FLD 1
+      EDST.REC<GIC.EDST.APLICPDD> = SEQ.REC[2,1]   ; * FLD 2
+      EDST.REC<GIC.EDST.IDLOG> = SEQ.REC[3,4]      ; * FLD 3
+      EDST.REC<GIC.EDST.NRLOG> = SEQ.REC[7,8]      ; * FLD 4
+      EDST.REC<GIC.EDST.TPROC> = SEQ.REC[15,1]     ; * FLD 5
+      EDST.REC<GIC.EDST.MODENV> = SEQ.REC[16,1]
+      EDST.REC<GIC.EDST.DHMSG> = SEQ.REC[17,14]
+      EDST.REC<GIC.EDST.CODRESP> = SEQ.REC[31,1]
+      EDST.REC<GIC.EDST.NRIDRESP> = SEQ.REC[32,14]
+      EDST.REC<GIC.EDST.TIPOTERM> = SEQ.REC[46,1]  ; * FLD 10
+      EDST.REC<GIC.EDST.BANAPOIO> = SEQ.REC[47,4]
+      EDST.REC<GIC.EDST.IDPROP> = SEQ.REC[51,7]
+      EDST.REC<GIC.EDST.IDTERMINAL> = SEQ.REC[58,10]
+      EDST.REC<GIC.EDST.DTHORA> = SEQ.REC[68,14]
+      EDST.REC<GIC.EDST.IDPERLOCAL> = SEQ.REC[82,3]          ; * FLD 15
+      EDST.REC<GIC.EDST.NUMREGLOC> = SEQ.REC[85,5]
+      EDST.REC<GIC.EDST.LOCTERM> = SEQ.REC[90,40]
+      EDST.REC<GIC.EDST.DISTCONC> = SEQ.REC[130,4]
+      EDST.REC<GIC.EDST.MCC> = SEQ.REC[134,4]
+      EDST.REC<GIC.EDST.CODPAIS> = SEQ.REC[138,3]  ; * FLD 20
+      EDST.REC<GIC.EDST.CONTANIB> = SEQ.REC[141,15]
+      EDST.REC<GIC.EDST.CDNIB> = SEQ.REC[156,2]
+      EDST.REC<GIC.EDST.CODTRN> = SEQ.REC[158,2]
+      EDST.REC<GIC.EDST.INDEST.R> = SEQ.REC[160,1]
+      EDST.REC<GIC.EDST.MONTANTE.1> = SEQ.REC[161,13]        ; * FLD 25
+      EDST.REC<GIC.EDST.MONT1.SIGN> = SEQ.REC[174,1]
+      EDST.REC<GIC.EDST.TAXACLI.1> = SEQ.REC[175,7]
+      EDST.REC<GIC.EDST.TAX1.SIGN> = SEQ.REC[182,1]
+      EDST.REC<GIC.EDST.COMEMI.1> = SEQ.REC[183,11]
+      EDST.REC<GIC.EDST.EMI1.SIGN> = SEQ.REC[194,1]          ; * FLD 30
+      EDST.REC<GIC.EDST.COMPROP.1> = SEQ.REC[195,11]
+      EDST.REC<GIC.EDST.PROP1.SIGN> = SEQ.REC[206,1]
+      EDST.REC<GIC.EDST.MONTANTE.2> = SEQ.REC[207,13]
+      EDST.REC<GIC.EDST.MONT2.SIGN> = SEQ.REC[220,1]
+      EDST.REC<GIC.EDST.TAXACLI.2> = SEQ.REC[221,7]          ; * FLD 35
+      EDST.REC<GIC.EDST.TAX2.SIGN> = SEQ.REC[228,1]
+      EDST.REC<GIC.EDST.TARINT.1> = SEQ.REC[229,3]
+      EDST.REC<GIC.EDST.COMEMI.2> = SEQ.REC[332,11]
+      EDST.REC<GIC.EDST.EMI2.SIGN> = SEQ.REC[343,1]
+      EDST.REC<GIC.EDST.TARINT.2> = SEQ.REC[344,3]           ; * FLD 40
+      EDST.REC<GIC.EDST.COMPROP.2> = SEQ.REC[347,11]
+      EDST.REC<GIC.EDST.PROP2.SIGN> = SEQ.REC[358,1]
+      EDST.REC<GIC.EDST.CODMOEDA> = SEQ.REC[359,3]
+      EDST.REC<GIC.EDST.TARSIBS> = SEQ.REC[362,3]
+      EDST.REC<GIC.EDST.CODCOM> = SEQ.REC[365,2]   ; * FLD 45
+      EDST.REC<GIC.EDST.FILLER.1> = SEQ.REC[367,11]
+*
+      RETURN
+*
+*********************************************************************
+MERCH.COMP:
+***********
+*********************************************************************
+* This paragraph deals only with records where the Record Type = 3. *
+* The following types of transactions are reported on when this type*
+* of record applies: Function of Support Bank to the POS Merchant,  *
+* or Function of Support Bank to the company with Payment Services  *
+* or Special Services at Multibank system.                          *
+*********************************************************************
+*
+      EDST.REC<GIC.EDST.REG.TYPE> = SEQ.REC[1,1]   ; * FLD 1
+      EDST.REC<GIC.EDST.APLICPDD> = SEQ.REC[2,1]   ; * FLD 2
+      EDST.REC<GIC.EDST.IDLOG> = SEQ.REC[3,4]      ; * FLD 3
+      EDST.REC<GIC.EDST.NRLOG> = SEQ.REC[7,8]      ; * FLD 4
+      EDST.REC<GIC.EDST.TPROC> = SEQ.REC[15,1]     ; * FLD 5
+      EDST.REC<GIC.EDST.MODENV> = SEQ.REC[16,1]
+      EDST.REC<GIC.EDST.DHMSG> = SEQ.REC[17,14]
+      EDST.REC<GIC.EDST.CODRESP> = SEQ.REC[31,1]
+      EDST.REC<GIC.EDST.NRIDRESP> = SEQ.REC[32,14]
+      EDST.REC<GIC.EDST.TIPOTERM> = SEQ.REC[46,1]  ; * FLD 10
+      EDST.REC<GIC.EDST.BANAPOIO> = SEQ.REC[47,4]
+      EDST.REC<GIC.EDST.IDPROP> = SEQ.REC[51,7]
+      EDST.REC<GIC.EDST.IDTERMINAL> = SEQ.REC[58,10]
+      EDST.REC<GIC.EDST.DTHORA> = SEQ.REC[68,14]
+      EDST.REC<GIC.EDST.IDPERLOCAL> = SEQ.REC[82,3]          ; * FLD 15
+      EDST.REC<GIC.EDST.NUMREGLOC> = SEQ.REC[85,5]
+      EDST.REC<GIC.EDST.DISTCONC> = SEQ.REC[90,4]
+      EDST.REC<GIC.EDST.MCC> = SEQ.REC[94,4]
+      EDST.REC<GIC.EDST.CODPAIS> = SEQ.REC[98,3]
+      EDST.REC<GIC.EDST.IDCOMEMP> = SEQ.REC[101,7]           ; * FLD 20
+      EDST.REC<GIC.EDST.IDEST> = SEQ.REC[108,4]
+      EDST.REC<GIC.EDST.CONTA> = SEQ.REC[112,15]
+      EDST.REC<GIC.EDST.CODTRN> = SEQ.REC[127,2]
+      EDST.REC<GIC.EDST.INDEST.R> = SEQ.REC[129,1]
+      EDST.REC<GIC.EDST.TOTOPER> = SEQ.REC[130,5]  ; * FLD 25
+      EDST.REC<GIC.EDST.MONTANTE.1> = SEQ.REC[135,13]
+      EDST.REC<GIC.EDST.MONT1.SIGN> = SEQ.REC[148,1]
+      EDST.REC<GIC.EDST.COMEMI.1> = SEQ.REC[149,11]
+      EDST.REC<GIC.EDST.EMI1.SIGN> = SEQ.REC[160,1]
+      EDST.REC<GIC.EDST.COMPROP.1> = SEQ.REC[161,11]         ; * FLD 30
+      EDST.REC<GIC.EDST.PROP1.SIGN> = SEQ.REC[172,1]
+      EDST.REC<GIC.EDST.COMREP.1> = SEQ.REC[173,11]
+      EDST.REC<GIC.EDST.REP1.SIGN> = SEQ.REC[184,1]
+      EDST.REC<GIC.EDST.COMMB.1> = SEQ.REC[185,11]
+      EDST.REC<GIC.EDST.MB1.SIGN> = SEQ.REC[196,1]           ; * FLD 35
+      EDST.REC<GIC.EDST.MONTANTE.2> = SEQ.REC[197,13]
+      EDST.REC<GIC.EDST.MONT2.SIGN> = SEQ.REC[210,1]
+      EDST.REC<GIC.EDST.COMEMI.2> = SEQ.REC[211,11]
+      EDST.REC<GIC.EDST.EMI2.SIGN> = SEQ.REC[222,1]
+      EDST.REC<GIC.EDST.COMPROP.2> = SEQ.REC[223,11]         ; * FLD 40
+      EDST.REC<GIC.EDST.PROP2.SIGN> = SEQ.REC[234,1]
+      EDST.REC<GIC.EDST.COMREP.2> = SEQ.REC[235,11]
+      EDST.REC<GIC.EDST.REP2.SIGN> = SEQ.REC[246,1]
+      EDST.REC<GIC.EDST.COMMB.2> = SEQ.REC[247,11]
+      EDST.REC<GIC.EDST.MB2.SIGN> = SEQ.REC[258,1]           ; * FLD 45
+      EDST.REC<GIC.EDST.CODMOEDA> = SEQ.REC[259,3]
+      EDST.REC<GIC.EDST.TOTCLI.1> = SEQ.REC[262,13]
+      EDST.REC<GIC.EDST.TCLI1.SIGN> = SEQ.REC[275,1]
+      EDST.REC<GIC.EDST.VALCOM.1> = SEQ.REC[276,13]
+      EDST.REC<GIC.EDST.VCOM1.SIGN> = SEQ.REC[289,1]         ; * FLD 50
+      EDST.REC<GIC.EDST.TOTCLI.2> = SEQ.REC[290,13]
+      EDST.REC<GIC.EDST.TCLI2.SIGN> = SEQ.REC[303,1]
+      EDST.REC<GIC.EDST.VALCOM.2> = SEQ.REC[304,13]
+      EDST.REC<GIC.EDST.VCOM2.SIGN> = SEQ.REC[317,1]
+      EDST.REC<GIC.EDST.TARSIBS> = SEQ.REC[318,3]  ; * FLD 55
+      EDST.REC<GIC.EDST.TARSIBS.2> = SEQ.REC[321,3]
+      EDST.REC<GIC.EDST.NUMOPTARS> = SEQ.REC[324,3]
+      EDST.REC<GIC.EDST.TARINT.1> = SEQ.REC[327,3]
+      EDST.REC<GIC.EDST.OPERTAR.1> = SEQ.REC[330,4]
+      EDST.REC<GIC.EDST.TARINT.2> = SEQ.REC[334,3]           ; * FLD 60
+      EDST.REC<GIC.EDST.OPERTAR.2> = SEQ.REC[337,4]
+      EDST.REC<GIC.EDST.FILLER.1> = SEQ.REC[341,15]          ; * Add Data
+      EDST.REC<GIC.EDST.APLICPDD.O> = SEQ.REC[356,1]
+      EDST.REC<GIC.EDST.IDLOG.O> = SEQ.REC[357,4]
+      EDST.REC<GIC.EDST.NRLOG.O> = SEQ.REC[361,8]  ; * FLD 65
+      EDST.REC<GIC.EDST.IDOCUMENT> = SEQ.REC[369,10]
+*
+      RETURN
+*
+*********************************************************************
+EUROCHEQUES:
+************
+*********************************************************************
+* This section will populate detail records where the Record Type   *
+* is equal to '4'. This type of record will be created when a       *
+* Eurocheque negotiated abroad is received on SIBS central clearing.*
+* SIBS performs the cheque's optical reading, defines the Amount and*
+* inserts the operation data in Multibank Clearing.                 *
+*********************************************************************
+*
+      EDST.REC<GIC.EDST.REG.TYPE> = SEQ.REC[1,1]   ; * FLD 1
+      EDST.REC<GIC.EDST.ZIB> = SEQ.REC[2,8]
+      EDST.REC<GIC.EDST.NCONTA> = SEQ.REC[10,11]
+      EDST.REC<GIC.EDST.NCHQ> = SEQ.REC[21,10]
+      EDST.REC<GIC.EDST.TIPCHQ> = SEQ.REC[31,2]    ; * FLD 5
+      EDST.REC<GIC.EDST.REFDOC> = SEQ.REC[33,13]
+      EDST.REC<GIC.EDST.CODMOEDA> = SEQ.REC[46,3]
+      EDST.REC<GIC.EDST.CAMBIO> = SEQ.REC[49,9]
+      EDST.REC<GIC.EDST.IMPORTOP> = SEQ.REC[58,11]
+      EDST.REC<GIC.EDST.VALTOTAL> = SEQ.REC[69,11]           ; * FLD 10
+      EDST.REC<GIC.EDST.IMPOSTVM> = SEQ.REC[80,9]
+      EDST.REC<GIC.EDST.BANAPOIO> = SEQ.REC[89,4]
+      EDST.REC<GIC.EDST.CODPAIS> = SEQ.REC[93,3]
+      EDST.REC<GIC.EDST.CODCOM> = SEQ.REC[96,2]
+      EDST.REC<GIC.EDST.MONTANTE.1> = SEQ.REC[98,13]         ; * FLD 15
+      EDST.REC<GIC.EDST.MONT1.SIGN> = SEQ.REC[111,1]
+      EDST.REC<GIC.EDST.MONTANTE.2> = SEQ.REC[112,13]
+      EDST.REC<GIC.EDST.MONT2.SIGN> = SEQ.REC[125,1]
+      EDST.REC<GIC.EDST.CAMBIOCLI> = SEQ.REC[126,9]
+      EDST.REC<GIC.EDST.IMPORTCLI> = SEQ.REC[135,13]         ; * FLD 20
+      EDST.REC<GIC.EDST.IMPCLI.SIGN> = SEQ.REC[148,1]
+*
+      RETURN
+*
+*********************************************************************
+CLEARING:
+*********
+*********************************************************************
+* Control will be passed to this section when the record type is '5'*
+* This type of record is created for the Clearing Support Bank. The *
+* following types of support is available: To Europay, Eurocheques, *
+* Bilateral Agreements, Savings Banks, VISA (National Users), and to*
+* AMEX ( operations in Multibank ATM's). The following fields apply *
+* to this Record Type only.                                         *
+*********************************************************************
+*
+      EDST.REC<GIC.EDST.REG.TYPE> = SEQ.REC[1,1]   ; * FLD 1
+      EDST.REC<GIC.EDST.APLICPDD> = SEQ.REC[2,1]   ; * FLD 2
+      EDST.REC<GIC.EDST.IDLOG> = SEQ.REC[3,4]      ; * FLD 3
+      EDST.REC<GIC.EDST.NRLOG> = SEQ.REC[7,8]      ; * FLD 4
+      EDST.REC<GIC.EDST.DTHORA> = SEQ.REC[15,14]   ; * FLD 5
+      EDST.REC<GIC.EDST.SISTEMA> = SEQ.REC[29,1]
+      EDST.REC<GIC.EDST.SISTPAG> = SEQ.REC[30,1]
+      EDST.REC<GIC.EDST.CODPAIS> = SEQ.REC[31,3]
+      EDST.REC<GIC.EDST.IDPERSP> = SEQ.REC[34,3]
+      EDST.REC<GIC.EDST.IDREMESSA> = SEQ.REC[37,8]           ; * FLD 10
+      EDST.REC<GIC.EDST.AV.CUTOFF> = SEQ.REC[45,1]
+      EDST.REC<GIC.EDST.IDCC> = SEQ.REC[46,10]
+      EDST.REC<GIC.EDST.CONTA> = SEQ.REC[56,15]
+      EDST.REC<GIC.EDST.DATAVALOR> = SEQ.REC[71,8]
+      EDST.REC<GIC.EDST.MONTANTE.1> = SEQ.REC[79,13]         ; * FLD 15
+      EDST.REC<GIC.EDST.MONT1.SIGN> = SEQ.REC[92,1]
+      EDST.REC<GIC.EDST.MONTANTE.2> = SEQ.REC[93,13]
+      EDST.REC<GIC.EDST.MONT2.SIGN> = SEQ.REC[106,1]
+      EDST.REC<GIC.EDST.CODMOEDA> = SEQ.REC[107,3]
+      EDST.REC<GIC.EDST.FILLER.1> = SEQ.REC[110,43]          ; * FLD 20
+      EDST.REC<GIC.EDST.CAMBIO> = SEQ.REC[153,9]
+      EDST.REC<GIC.EDST.VMOEDA> = SEQ.REC[162,11]
+      EDST.REC<GIC.EDST.VMOEDATX> = SEQ.REC[173,11]
+      EDST.REC<GIC.EDST.TOTIMPVM> = SEQ.REC[184,9]           ; * FLD 24
+*
+      RETURN
+*
+*********************************************************************
+ACCT.MOVE:
+**********
+*********************************************************************
+* When the Record Type of the incoming record is equal to '6', this *
+* section will be executed. The transaction this record refers to   *
+* was in respect of Account operations to specific services. The    *
+* following fields apply to this type of record only.               *
+*********************************************************************
+*
+      EDST.REC<GIC.EDST.REG.TYPE> = SEQ.REC[1,1]   ; * FLD 1
+      EDST.REC<GIC.EDST.APLICPDD> = SEQ.REC[2,1]   ; * FLD 2
+      EDST.REC<GIC.EDST.IDLOG> = SEQ.REC[3,4]      ; * FLD 3
+      EDST.REC<GIC.EDST.NRLOG> = SEQ.REC[7,8]      ; * FLD 4
+      EDST.REC<GIC.EDST.DTHORA> = SEQ.REC[15,14]   ; * FLD 5
+      EDST.REC<GIC.EDST.SISTEMA> = SEQ.REC[29,1]
+      EDST.REC<GIC.EDST.SISTPAG> = SEQ.REC[30,1]
+      EDST.REC<GIC.EDST.BPAGAPOIO> = SEQ.REC[31,1]
+      EDST.REC<GIC.EDST.AV.CUTOFF> = SEQ.REC[32,1]
+      EDST.REC<GIC.EDST.CONTA> = SEQ.REC[33,15]    ; * FLD 10
+      EDST.REC<GIC.EDST.DATAVALOR> = SEQ.REC[48,8]
+      EDST.REC<GIC.EDST.TIPMOV> = SEQ.REC[56,4]
+      EDST.REC<GIC.EDST.MONTANTE.1> = SEQ.REC[60,13]
+      EDST.REC<GIC.EDST.MONT1.SIGN> = SEQ.REC[73,1]
+      EDST.REC<GIC.EDST.VALCOM.1> = SEQ.REC[74,13]           ; * FLD 15
+      EDST.REC<GIC.EDST.VCOM1.SIGN> = SEQ.REC[87,1]
+      EDST.REC<GIC.EDST.MONTANTE.2> = SEQ.REC[88,13]
+      EDST.REC<GIC.EDST.MONT2.SIGN> = SEQ.REC[101,1]
+      EDST.REC<GIC.EDST.VALCOM.2> = SEQ.REC[102,13]
+      EDST.REC<GIC.EDST.VCOM2.SIGN> = SEQ.REC[115,1]         ; * FLD 20
+      EDST.REC<GIC.EDST.CODMOEDA> = SEQ.REC[116,3]
+      EDST.REC<GIC.EDST.FILLER.1> = SEQ.REC[119,70]          ; * FLD 22
+*
+      RETURN
+*
+********************************************************************
+MOVE.OLD.HISTORY:
+*****************
+*
+      EDST.HIS.ID = ''
+*
+      SEL.3 = 'SSELECT ':CARD.EDST.FILE
+      YLIST = '' ; YNO = '' ; YERR = ''
+      CALL EB.READLIST(SEL.3,YLIST,'',YNO,YERR)
+*
+      FOR I = 1 TO YNO
+         READ EDST.REC FROM F.GIC.CARD.EDST,YLIST<I> THEN
+            EDST.HIS.ID = YLIST<I>:';1'
+            WRDEOK = 1
+            WRITE EDST.REC TO F.GIC.CARD.EDST$HIS, EDST.HIS.ID ON ERROR WRDEOK = 0; IF WRDEOK THEN
+               DELETE F.GIC.CARD.EDST,YLIST<I>
+            END
+         END
+      NEXT I
+*
+      RETURN
+*
+*********************************************************************
+*               This is the Final End Statement                     *
+*********************************************************************
+*
+   END
+*

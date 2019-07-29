@@ -1,0 +1,23 @@
+* I_F.IB.MESSAGE.GRP.SB Created 26 JAN 15 at 12:22PM by bstm/OFSUSER2
+*      PREFIX[IB.MSG.GRP]
+        EQU IB.MSG.GRP.DESCRIPTION TO 1,   IbMessageGrpSb_Description TO 1,
+                IB.MSG.GRP.MSG.TAG TO 2,   IbMessageGrpSb_MsgTag TO 2,
+            IB.MSG.GRP.RESERVED.10 TO 3,   IbMessageGrpSb_Reserved10 TO 3,
+             IB.MSG.GRP.RESERVED.9 TO 4,   IbMessageGrpSb_Reserved9 TO 4,
+             IB.MSG.GRP.RESERVED.8 TO 5,   IbMessageGrpSb_Reserved8 TO 5,
+             IB.MSG.GRP.RESERVED.7 TO 6,   IbMessageGrpSb_Reserved7 TO 6,
+             IB.MSG.GRP.RESERVED.6 TO 7,   IbMessageGrpSb_Reserved6 TO 7,
+             IB.MSG.GRP.RESERVED.5 TO 8,   IbMessageGrpSb_Reserved5 TO 8,
+             IB.MSG.GRP.RESERVED.4 TO 9,   IbMessageGrpSb_Reserved4 TO 9,
+             IB.MSG.GRP.RESERVED.3 TO 10,  IbMessageGrpSb_Reserved3 TO 10,
+             IB.MSG.GRP.RESERVED.2 TO 11,  IbMessageGrpSb_Reserved2 TO 11,
+             IB.MSG.GRP.RESERVED.1 TO 12,  IbMessageGrpSb_Reserved1 TO 12,
+          IB.MSG.GRP.RECORD.STATUS TO 13,  IbMessageGrpSb_RecordStatus TO 13,
+                IB.MSG.GRP.CURR.NO TO 14,  IbMessageGrpSb_CurrNo TO 14,
+               IB.MSG.GRP.INPUTTER TO 15,  IbMessageGrpSb_Inputter TO 15,
+              IB.MSG.GRP.DATE.TIME TO 16,  IbMessageGrpSb_DateTime TO 16,
+             IB.MSG.GRP.AUTHORISER TO 17,  IbMessageGrpSb_Authoriser TO 17,
+                IB.MSG.GRP.CO.CODE TO 18,  IbMessageGrpSb_CoCode TO 18,
+              IB.MSG.GRP.DEPT.CODE TO 19,  IbMessageGrpSb_DeptCode TO 19,
+           IB.MSG.GRP.AUDITOR.CODE TO 20,  IbMessageGrpSb_AuditorCode TO 20,
+        IB.MSG.GRP.AUDIT.DATE.TIME TO 21,  IbMessageGrpSb_AuditDateTime TO 21

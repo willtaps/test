@@ -1,0 +1,25 @@
+    PROGRAM IB.CCB
+
+    CMD = "SELECT IB.BP WITH @ID UNLIKE $... AND @ID UNLIKE I_..."
+    EXEC CMD
+
+    OPEN "","VOC" TO F.VOC ELSE NULL
+    R.VOC = "PA"
+    IF @SELECTED THEN
+        YLIST = "" ; YNO = 0
+        LOOP
+            READNEXT YID ELSE YID = ""
+        WHILE YID DO
+            IF YID = "GET.APPS.XSL" THEN CONTINUE
+            YLIST<-1> = YID
+            YNO += 1
+            R.VOC<-1> = "BASIC -I../T24_BP IB.BP " : YID
+            R.VOC<-1> = "CATALOG -I../T24_BP IB.BP " : YID
+
+        REPEAT
+        WRITE R.VOC TO F.VOC, "IB.CC"
+        CRT "IB.CC"
+        EXEC "IB.CC"
+    END
+    STOP
+END

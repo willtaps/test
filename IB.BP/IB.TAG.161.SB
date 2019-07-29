@@ -1,0 +1,47 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.TAG.161.SB
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_IB.TAG.SB.COMMON
+*
+
+    YR.SIT.CARD = YR.RETURN
+    YR.NEW.SIT = ""
+
+    BEGIN CASE
+    CASE YR.SIT.CARD = "01"
+        YR.NEW.SIT = ""
+    CASE YR.SIT.CARD = "02"
+        YR.NEW.SIT = ""
+    CASE YR.SIT.CARD = "03"
+        YR.NEW.SIT = ""
+    CASE YR.SIT.CARD = "05"
+        YR.NEW.SIT = "91"
+    CASE YR.SIT.CARD = "06"
+        YR.NEW.SIT = "99"
+    CASE YR.SIT.CARD = "07"
+        YR.NEW.SIT = "99"
+    CASE YR.SIT.CARD = "08"
+        YR.NEW.SIT = "92"
+    CASE YR.SIT.CARD = "09"
+        YR.NEW.SIT = "93"
+    CASE YR.SIT.CARD = "0A"
+        YR.NEW.SIT = "99"
+    CASE YR.SIT.CARD = "0B"
+        YR.NEW.SIT = "93"
+    CASE YR.SIT.CARD = "0D"
+        YR.NEW.SIT = ""
+    CASE YR.SIT.CARD = "0E"
+        YR.NEW.SIT = "91"
+    CASE OTHERWISE
+        YR.NEW.SIT = ""
+    END CASE
+
+    YR.RETURN = YR.NEW.SIT
+
+    RETURN
+
+END

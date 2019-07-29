@@ -1,0 +1,111 @@
+*-----------------------------------------------------------------------------
+* <Rating>-54</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SB.CANCEL.INACTIVE.IBK.USERS
+*
+*************************************************************************
+* Development Date      : March 2013
+* Developed for         : Standard Bank Mozambique
+* Developed By          : Leovigildo Reis - Mozambique
+*************************************************************************
+* Table readed          : EB.IBK.USER
+* External Subrotine    :
+* Associated Enquiry    : SB.CANCELLED.IBK.USERS
+* Summary Description   :
+* Revision/Change       : Version 1.0
+* Revision/Change Note  :
+* Revision/Change Date  :
+* Revision/Change By    :
+*************************************************************************
+*
+*
+    $INSERT BP I_F.IBK.USER
+
+    GOSUB INIT
+    GOSUB OPEN.FILES
+    GOSUB PROCESS
+    CALL DISPLAY.MESSAGE("Processo Executado! Utilizadores Bloqueados: ":blockedUsers, "6")
+    RETURN
+
+* Initialise variables
+INIT:
+    FN.EB.IBK.USER = "F.EB.IBK.USER"
+    F.EB.IBK.USER = ""
+
+    blockedUsers = 0
+
+    RETURN
+
+* Open required files
+OPEN.FILES:
+    CALL OPF(FN.EB.IBK.USER, F.EB.IBK.USER)
+    RETURN
+
+* Do processing
+PROCESS:
+    selectUsers = "SSELECT ":FN.EB.IBK.USER:" WITH STATUS.CODE EQ 'ACTIVE'"
+    CALL EB.READLIST(selectUsers, usersList, '', count, err)
+
+    FOR I = 1 TO count STEP 1
+        userID = usersList<I>
+        isActive = 'A'
+
+        GOSUB CHECKUSER
+
+        IF isActive NE 'A' THEN
+            CALL F.READ(FN.EB.IBK.USER, userID, R.USER.REC, F.EB.IBK.USER, err)
+            R.USER.REC<EB.IBK17.STATUS.CODE> = 'DEACTIVE'
+            R.USER.REC<EB.IBK17.REMARKS> = 'CANCELLED*':isActive
+
+            date = OCONV(DATE(), "D-")
+            time = TIMEDATE()
+            R.USER.REC<EB.IBK17.DATE.TIME,1> = date[9,2]:date[1,2]:date[4,2]:time[1,2]:time[4,2]
+
+            WRITE R.USER.REC TO F.EB.IBK.USER, userID ON ERROR NULL
+
+            blockedUsers = blockedUsers + 1
+            CALL DISPLAY.MESSAGE("Blocking user: ":userID, "6")
+        END
+
+    NEXT I
+
+    RETURN
+
+* Check if user is active on NetPlus database
+CHECKUSER:
+    className = 'canceluser.Main'
+    methodName = '$isUserActive'
+    param = userID
+
+    CALLJ className, methodName, param SETTING ret ON ERROR
+        GOSUB ERROR.HANDLER
+        STOP
+    END
+
+    isActive = ret
+ 
+    RETURN
+
+ERROR.HANDLER:
+    err = SYSTEM(0)
+
+    BEGIN CASE
+    CASE err = 1
+        CRT "Fatal Error creating Thread!"
+    CASE err = 2
+        CRT "Cannot find the JVM.dll !"
+    CASE err = 3
+        CRT "Class " : className : " doesn't exist!"
+    CASE err = 4
+        CRT "UNICODE conversion error!"
+    CASE err = 5
+        CRT "Method " : methodName : " doesn't exist!"
+    CASE err = 6
+        CRT "Cannot find object Constructor!"
+    CASE err = 7
+        CRT "Cannot instantiate object!"
+    CASE @TRUE
+        CRT "Unknown error!"
+    END CASE
+
+    RETURN

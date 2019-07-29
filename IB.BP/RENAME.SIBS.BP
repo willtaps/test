@@ -1,0 +1,35 @@
+    PROGRAM RENAME.SIBS.BP
+
+    OPEN "","SIBS.BP" TO F.BP ELSE
+        STOP "SIBS.BP NOT INSTALLED"
+    END
+
+    OPEN "","IB.BP" TO F.IB.BP ELSE
+        STOP "IB.BP NOT INSTALLED"
+    END
+
+    CMD = "SELECT SIBS.BP WITH @ID UNLIKE $... AND @ID LIKE ...SIBS..."
+    EXEC CMD
+    LOOP
+        READNEXT YID ELSE YID = ""
+    WHILE YID DO
+        READ YTEMP FROM F.BP,YID THEN
+            YID.NEW = CHANGE(YID,"SIBS", "IB")
+            CRT FMT(YID,"50L") : " ---> ":FMT( YID.NEW ,"50L")
+            YTEMP = CHANGE(YTEMP,"SIBS","IB")
+            WRITE YTEMP TO F.IB.BP, YID.NEW
+        END
+    REPEAT
+
+    CMD= "BASIC IB.BP IB.CCB"
+    EXEC CMD
+    CMD = "CATALOG IB.BP IB.CCB"
+    EXEC CMD
+    CMD = "IB.CCB"
+    EXEC CMD
+    CMD ="IB.CC"
+    EXEC CMD
+
+    STOP
+
+END

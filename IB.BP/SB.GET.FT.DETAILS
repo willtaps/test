@@ -1,0 +1,67 @@
+*-----------------------------------------------------------------------------
+* <Rating>55</Rating>
+*-----------------------------------------------------------------------------
+    PROGRAM SB.GET.FT.DETAILS
+
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.ACCOUNT
+    $INCLUDE I_F.FUNDS.TRANSFER
+
+*   Inicio do Programa
+
+    GOSUB PROCESS
+
+    RETURN
+
+*       Fim do Programa
+
+
+************
+PROCESS:
+************
+
+    FN.TEMP = "TEMP"
+    FV.TEMP = ""
+    CALL OPF(FN.TEMP,FV.TEMP)
+
+    OPEN '','TEMP' TO F.INPUT.FILE ELSE PRINT 'CAN NOT OPEN TEMP'
+    YFILE.NAME = "PONTO24_NAU"
+    FT.LIST = ''
+
+    LINHA = ''
+
+
+    READ FT.LIST FROM F.INPUT.FILE,YFILE.NAME THEN
+        CNT = DCOUNT(FT.LIST,@FM)
+        FOR K = 1 TO CNT
+
+            CRT "LENDO OS DETALHES DAS CONTAS. REGISTO ":K:"/":CNT
+            MNEM = FT.LIST<K>[1,3]
+            FT.ID = FT.LIST<K>[5,12]
+
+            FN.FUNDS.TRANSFER = "F":MNEM:".FUNDS.TRANSFER$NAU"
+            F.FUNDS.TRANSFER = ""
+            CALL OPF(FN.FUNDS.TRANSFER,F.FUNDS.TRANSFER)
+
+            REC.FT = ''
+            READ REC.FT FROM F.FUNDS.TRANSFER,FT.ID ELSE REC.FT = ''
+            YIDLOG = REC.FT<FT.LOCAL.REF,33>
+            YNRLOG = REC.FT<FT.LOCAL.REF,34>
+*IDLOG, NRLOG
+*1.33 LOCAL.TABLE.NO. 978                 IDLOG
+*2.33 SUB.ASSOC.CODE.
+*1.34 LOCAL.TABLE.NO. 979                 NRLOG
+
+
+            LINHA.LOCAL = FT.LIST<K>
+            LINHA<-1> = LINHA.LOCAL:',':YIDLOG:YNRLOG
+
+        NEXT K
+    END
+
+    WRITE LINHA TO F.INPUT.FILE,"PONTO24_NAU.OUT"
+
+    RETURN
+END

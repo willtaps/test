@@ -1,0 +1,42 @@
+    PROGRAM BUILD.APPL.IB
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+    YLIST = "IB.TAG.GRP.SB"
+    YLIST<-1> = "IB.CODE.PROCESS.SB"
+    YLIST<-1> = "IB.MSG.CODES.SB"
+    YLIST<-1> = "IB.EVENT.TYPES.SB"
+    YLIST<-1> = "IB.BANK.CODES.SB"
+    YLIST<-1> = "IB.MESSAGE.TAG.SB"
+    YLIST<-1> = "IB.ATM.BALANCE.SB"
+    YLIST<-1> = "IB.MSG.GRP.SB"
+    YLIST<-1> = "IB.OPE.TYPES.SB"
+    YLIST<-1> = "IB.CODE.MESSAGE.SB"
+    YLIST<-1> = "IB.PARAMETER.SB"
+    YLIST<-1> = "IB.ATM.POS.LINK.SB"
+    YLIST<-1> = "IB.RESPONSE.CODES.SB"
+    YNO = DCOUNT(YLIST,@FM)
+
+    APPLICATION = "EB.DEV.HELPER"
+
+
+    V$FUNCTION = "V"
+    FOR J = 1 TO YNO
+        ID.NEW = YLIST<J>
+        MAT R.NEW = ""
+        FOR X = 1 TO 5
+            R.NEW(X) = "YES"
+        NEXT X
+*        DATA "Y", "Y",  "Y",  "Y",  "Y"
+*        CALL EB.DEV.HELPER.RUN
+        INPUT.BUFFER = APPLICATION : " V " : ID.NEW : " " : C.V
+        FOR KK = 1 TO 5
+            INPUT.BUFFER = "Y"
+        NEXT KK
+        INPUT.BUFFER = "C.U"
+
+    NEXT J
+    STOP
+
+END

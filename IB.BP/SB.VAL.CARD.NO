@@ -1,0 +1,34 @@
+    SUBROUTINE SB.VAL.CARD.NO
+
+*********************************************
+*Develop By       : Priti Carsane
+*Developed for    : Standard Bank Mozambique
+*Development Date : 12/10/2017
+*
+*Summary Description: This rotine wil validade the number inputted
+*
+*Revision by:
+*Revision Comment:
+*Revision Date:
+*Version:
+**********************************************
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.SB.IB.CREAT.NPER
+
+    GOSUB INIT
+    RETURN
+
+INIT:
+
+    IF (COMI GE 10) AND (COMI LE 150) THEN
+        YES=0
+    END ELSE
+        ETEXT = 'Favor de verificar a quantidade dos cartoes'
+        CALL  STORE.END.ERROR
+    END
+    RETURN
+    RETURN
+
+END

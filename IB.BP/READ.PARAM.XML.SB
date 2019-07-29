@@ -1,0 +1,38 @@
+    PROGRAM READ.PARAM.XML.SB
+
+    YFILE.NAME = TRIM(@SENTENCE[" ",2,1])
+    YIDS =       TRIM(@SENTENCE[" ",3,1])
+
+    FN.FILE = "F." : YFILE.NAME :@FM :"NO.FATAL.ERROR"
+    F.FILE = ""
+    CALL OPF(FN.FILE, F.FILE)
+
+    SVN.DIR = "SVN.DIR"
+    OPEN "", SVN.DIR TO F.SVN ELSE
+        EXEC "CREATE-FILE " : SVN.DIR : " TYPE=UD"
+        OPEN "", SVN.DIR TO F.SVN ELSE
+            STOP " FAILED TO CREATE SVN.DIR"
+        END
+    END
+    EXEC "CLEARSELECT"
+    IF FN.FILE THEN
+        CMD = "SELECT " : FN.FILE
+        CRT CMD
+        IF YIDS <> "ALL" THEN
+            CMD := " WITH @ID EQ " : YIDS
+        END
+
+        EXEC CMD
+        LOOP
+            READNEXT YID ELSE YID = ""
+        WHILE YID DO
+            READXML XML.REC FROM F.FILE, YID THEN
+                WRITE XML.REC TO F.SVN, FN.FILE :">":YID:".xml"
+            END
+        REPEAT
+    END
+
+    STOP
+
+END
+

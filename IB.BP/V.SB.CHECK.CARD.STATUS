@@ -1,0 +1,31 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE V.SB.CHECK.CARD.STATUS
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+*
+    YPROG = PGM.VERSION
+    BEGIN CASE
+    CASE YPROG = ',BLACKLIST.P24'
+        GOSUB UPDATE0
+        RETURN
+    CASE YPROG = ',ACT.BLACKLIST.P24'
+        GOSUB UPDATE90
+        RETURN
+    END CASE
+
+UPDATE90:
+    IF COMI NE '90' THEN
+        ETEXT = 'CODIGO VALIDO - 90'
+    END
+    RETURN
+
+
+UPDATE0:
+    IF COMI NE '0' THEN
+        ETEXT = 'CODIGO VALIDO - 0'
+    END
+    RETURN
+END

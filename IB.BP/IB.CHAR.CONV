@@ -1,0 +1,17 @@
+    SUBROUTINE IB.CHAR.CONV (YTEXT)
+
+    OPEN "","IB.TEMP" TO F.SOURCE THEN
+        READ YCHAR FROM F.SOURCE,"CHAR.CONV" THEN
+            YNO = DCOUNT( YCHAR, @FM)
+            FOR X = 1 TO YNO
+                YLINE = TRIM(YCHAR<X>)
+                Y1 = YLINE[" ",1,1]
+                Y2 = YLINE[" ",3,1]
+                YTEXT = CHANGE(YTEXT,CHAR(Y1), CHAR(Y2))
+            NEXT X
+        END
+    END
+
+    RETURN
+
+END

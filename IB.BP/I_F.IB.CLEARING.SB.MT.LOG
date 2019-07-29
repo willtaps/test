@@ -1,0 +1,17 @@
+* I_F.IB.CLEARING.SB.MT.LOG Created 22 JUN 17 at 12:38AM by bstm/S.KUMAR
+*      PREFIX[IB.CLEARING.LOG]
+                      EQU IB.CLEARING.LOG.LOG.MSG TO 1,   IbClearingSbMtLog_LogMsg TO 1,
+                       IB.CLEARING.LOG.RESERVED.5 TO 2,   IbClearingSbMtLog_Reserved5 TO 2,
+                       IB.CLEARING.LOG.RESERVED.4 TO 3,   IbClearingSbMtLog_Reserved4 TO 3,
+                       IB.CLEARING.LOG.RESERVED.3 TO 4,   IbClearingSbMtLog_Reserved3 TO 4,
+                       IB.CLEARING.LOG.RESERVED.2 TO 5,   IbClearingSbMtLog_Reserved2 TO 5,
+                       IB.CLEARING.LOG.RESERVED.1 TO 6,   IbClearingSbMtLog_Reserved1 TO 6,
+                    IB.CLEARING.LOG.RECORD.STATUS TO 7,   IbClearingSbMtLog_RecordStatus TO 7,
+                          IB.CLEARING.LOG.CURR.NO TO 8,   IbClearingSbMtLog_CurrNo TO 8,
+                         IB.CLEARING.LOG.INPUTTER TO 9,   IbClearingSbMtLog_Inputter TO 9,
+                        IB.CLEARING.LOG.DATE.TIME TO 10,  IbClearingSbMtLog_DateTime TO 10,
+                       IB.CLEARING.LOG.AUTHORISER TO 11,  IbClearingSbMtLog_Authoriser TO 11,
+                          IB.CLEARING.LOG.CO.CODE TO 12,  IbClearingSbMtLog_CoCode TO 12,
+                        IB.CLEARING.LOG.DEPT.CODE TO 13,  IbClearingSbMtLog_DeptCode TO 13,
+                     IB.CLEARING.LOG.AUDITOR.CODE TO 14,  IbClearingSbMtLog_AuditorCode TO 14,
+                  IB.CLEARING.LOG.AUDIT.DATE.TIME TO 15,  IbClearingSbMtLog_AuditDateTime TO 15

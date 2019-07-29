@@ -1,0 +1,26 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.TAG.233.SB
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_IB.TAG.SB.COMMON
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INSERT I_F.IB.ATM.BALANCE.SB
+    $INCLUDE BP I_F.SB.IB.CCY.ISO
+*
+    FN.EB.SB.CURRENCY.ISO = 'F.EB.SB.IB.CCY.ISO'
+    F.EB.SB.CURRENCY.ISO = ''
+    CALL OPF(FN.EB.SB.CURRENCY.ISO,F.EB.SB.CURRENCY.ISO)
+*
+    CURRENCY.LIST = '' ; CURRENCY.NO = '' ; YERR = ''
+    SEL.CURRENCY = 'SELECT ':FN.EB.SB.CURRENCY.ISO:' WITH @ID EQ ':YR.RETURN
+    CALL EB.READLIST(SEL.CURRENCY,CURRENCY.LIST,'',CURRENCY.NO,YERR)
+*
+    IF CURRENCY.LIST THEN
+        ID.CCY = CURRENCY.LIST<1>
+        CALL F.READ(FN.EB.SB.CURRENCY.ISO,ID.CCY,REC.CCY,F.EB.SB.CURRENCY.ISO,ERR)
+        YR.RETURN = REC.CCY<EB.SB.18.CCY.COD>
+    END
+    RETURN

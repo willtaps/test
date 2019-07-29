@@ -1,0 +1,92 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SB.STO.ACCT.LIST.IB(STO.DATA)
+*
+*************************************************************************
+* Development Date      : June 2013
+* Developed for         : Standard Bank Mozambique
+* Develop By            : Leovigildo Reis - Mozambique
+*************************************************************************
+* Table readed          : COMPANY, STANDING.ORDER and ACCOUNT
+* External Subrotine    :
+* Summary Description   : Get standing orders for given account
+* Revision/Change       : Version 1.0
+* Revision/Change Note  :
+* Revision/Change Date  :
+* Revision/Change By    :
+*************************************************************************
+*
+*
+    $INSERT I_COMMON
+    $INSERT I_ENQUIRY.COMMON
+    $INSERT I_EQUATE
+    $INSERT I_F.COMPANY
+    $INSERT I_F.STANDING.ORDER
+    $INSERT I_F.ACCOUNT
+
+    GOSUB INIT
+    GOSUB OPEN.FILES
+    GOSUB PROCESS
+
+INIT:
+    FN.COMPANY = 'F.COMPANY'
+    F.COMPANY = ''
+
+    Y.CURRENT.DATE = OCONV(DATE(), "D-")
+    Y.CURRENT.DATE = Y.CURRENT.DATE[7,4]:Y.CURRENT.DATE[1,2]:Y.CURRENT.DATE[4,2]
+
+    LOCATE 'ACCOUNT.NO' IN D.FIELDS<1> SETTING Y.ACCT.POS ELSE NULL
+    Y.ACCT.NO = D.RANGE.AND.VALUE<Y.ACCT.POS>
+    RETURN
+
+OPEN.FILES:
+    CALL OPF(FN.COMPANY, F.COMPANY)
+    RETURN
+
+PROCESS:
+    Y.CMP.SELECT = 'SSELECT ':FN.COMPANY:' @ID MNEMONIC WITH MNEMONIC NE "BNK" AND MNEMONIC NE "S95" AND MNEMONIC NE "S96" AND MNEMONIC NE "S99"'
+    CALL EB.READLIST(Y.CMP.SELECT, Y.CMP.LIST, '', Y.CMP.COUNT, Y.CMP.ERROR)
+
+    FOR I = 1 TO Y.CMP.COUNT STEP 2
+        FN.STO = 'F':Y.CMP.LIST<I+1>:'.STANDING.ORDER'
+        F.STO = ''
+
+        CALL OPF(FN.STO, F.STO)
+        Y.STO.SELECT = 'SSELECT ':FN.STO:' STANDING.ORDER CPTY.ACCT.NO CURRENT.AMOUNT.BAL PAYMENT.DETAILS CURRENT.FREQUENCY CURR.FREQ.DATE CURRENT.END.DATE DATE.TIME '
+        Y.STO.SELECT := 'WITH STANDING.ORDER LIKE ':Y.ACCT.NO:'... AND CURRENT.END.DATE GE ': Y.CURRENT.DATE:' BY CURR.FREQ.DATE'
+        CALL EB.READLIST(Y.STO.SELECT, Y.STO.LIST, '', Y.STO.COUNT, Y.STO.ERROR)
+
+        FOR X = 1 TO Y.STO.COUNT STEP 8
+            Y.STANDING.ORDER = Y.STO.LIST<X>
+            Y.CPTY.ACCT.NO = Y.STO.LIST<X+1>
+            Y.CURRENT.AMOUNT.BAL  = Y.STO.LIST<X+2>
+            Y.PAYMENT.DETAILS  = Y.STO.LIST<X+3>
+            Y.CURRENT.FREQUENCY  = Y.STO.LIST<X+4>
+
+            Y.CURRENT.FREQUENCY.TYPE = FIELDS(Y.CURRENT.FREQUENCY, " ", 3)
+            Y.CURRENT.FREQUENCY.TYPE =  EREPLACE(Y.CURRENT.FREQUENCY.TYPE, 'e', '')
+
+            Y.CURR.FREQ.DATE  = Y.STO.LIST<X+5>
+            Y.CURRENT.END.DATE  = Y.STO.LIST<X+6>
+            Y.DATE.TIME = Y.STO.LIST<X+7>
+            Y.DATE.TIME = OCONV(ICONV(Y.DATE.TIME[1,6],"D2/"),'D4Y'):Y.DATE.TIME[3,4]
+
+            CALL GET.ACCT.BRANCH(Y.CPTY.ACCT.NO, Y.MNE, Y.CMP)
+
+            FN.ACCOUNT = 'F':Y.MNE:'.ACCOUNT'
+            F.ACCOUNT = ''
+
+            CALL OPF(FN.ACCOUNT, F.ACCOUNT)
+            CALL F.READ(FN.ACCOUNT, Y.CPTY.ACCT.NO, R.ACCT.REC, F.ACCOUNT, Y.ACCT.ERROR)
+
+            Y.CPTY.ACCT.TITLE = R.ACCT.REC<AC.ACCOUNT.TITLE.1, 1>
+            Y.CPTY.ACCT.CURRENCY = R.ACCT.REC<AC.CURRENCY, 1>
+
+            STO.DATA<-1> = Y.STANDING.ORDER:'*':Y.CPTY.ACCT.NO:'*':Y.CPTY.ACCT.TITLE:'*':Y.CPTY.ACCT.CURRENCY:'*':Y.CURRENT.AMOUNT.BAL:'*':Y.PAYMENT.DETAILS:'*':Y.CURRENT.FREQUENCY.TYPE:'*':Y.CURR.FREQ.DATE:'*':Y.CURRENT.END.DATE:'*':Y.DATE.TIME:'*':Y.CMP.LIST<I>
+        NEXT X
+
+    NEXT I
+
+    RETURN
+END

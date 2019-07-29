@@ -1,0 +1,73 @@
+*-----------------------------------------------------------------------------
+* <Rating>88</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE V.SB.POP.CR.NIB.RTGS
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.FUNDS.TRANSFER
+    $INCLUDE I_F.ACCOUNT
+
+    $INCLUDE BP I_F.SB.TRANS.BANCOS
+
+* Alteracao para acomodar outros bancos - 17/06/2013
+    FN.TBK='F.EB.SB.TRANS.BANCOS'
+    F.TBK = ''
+    CALL OPF(FN.TBK,F.TBK)
+
+    YHORA.FIM = '15:30'
+    YHORA.ACTUAL = OCONV(TIME(), "MT")
+
+    IF YHORA.ACTUAL GT YHORA.FIM THEN
+
+        ETEXT = 'TRANSACCAO FORA DE HORA - ':YHORA.FIM:' HORA LIMITE'
+        CALL STORE.END.ERROR
+
+    END ELSE
+
+* Alteracao para acomodar outros bancos - 17/06/2013
+        VARID=COMI[3,2]
+        CALL F.READ(FN.TBK,VARID,VAREC,F.TBK,ER1)
+        IF VAREC THEN
+*
+***-------------VALIDACAO DO CHECK DIGIT NIB --------------****
+*
+            YR.NIB = COMI[1,19]
+            YR.NIB.DIG = COMI[20,2]
+            YR.NIB := '00'
+            T1 = FIELD(YR.NIB/97,'.',1)
+            T1 = T1*97
+            YR.RESTO = YR.NIB - T1
+            CHECK.DIG = (97+1)-YR.RESTO
+            CHECK.DIG = FMT(CHECK.DIG, "2'0'R")
+            IF YR.NIB.DIG NE CHECK.DIG THEN
+                ETEXT = "CHECK DIGITO N.I.B INVALIDO"
+                CALL STORE.END.ERROR
+            END ELSE
+*
+***-------------FIM DA VALIDACAO DO DIGITO CONTROL ----------****
+*
+                YR.BEN.BANK = COMI[3,2]
+                IF YR.BEN.BANK[1,1] EQ "0" THEN
+                    YR.BEN.BANK = YR.BEN.BANK[2,1]
+                END ELSE
+                    YR.BEN.BANK = YR.BEN.BANK
+                END
+                YR.BEN.BRANCH = COMI[3,6]
+                YR.BEN.ACCT = COMI[9,11]
+                YR.BEN.ACCT = FMT(YR.BEN.ACCT, "12'0'R")
+*
+                R.NEW(FT.LOCAL.REF)<1,3> = YR.BEN.BANK
+                R.NEW(FT.LOCAL.REF)<1,7> = YR.BEN.ACCT
+                R.NEW(FT.LOCAL.REF)<1,47> = YR.BEN.BRANCH
+            END
+        END ELSE
+            ETEXT = "NIB INSERIDO INVALIDO NESTA OPCAO"
+            CALL STORE.END.ERROR
+        END
+
+    END
+
+    RETURN
+
+END

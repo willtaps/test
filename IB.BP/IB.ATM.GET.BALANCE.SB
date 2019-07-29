@@ -1,0 +1,167 @@
+*-----------------------------------------------------------------------------
+* <Rating>1613</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.ATM.GET.BALANCE.SB(WORK.AC.NUM)
+*
+* Call routine to get the balances for
+* the accounts requested by ATM
+*
+    $INCLUDE I_EQUATE
+    $INCLUDE I_COMMON
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_F.LIMIT
+    $INCLUDE I_F.CURRENCY
+
+    CURR.BAL = ''
+    AVAIL.BAL = ''
+    AC.ATM.STATUS = ''
+    AC.ARRAY = ''
+    YCCY.CODE = ''
+
+    IF NOT(FN.ACCOUNT) THEN RETURN
+
+    CALL F.READ(F.ACCOUNT,WORK.AC.NUM,R.AC,F.ACCOUNT,R.AC.ERR)
+    READ R.AC FROM F.ACCOUNT, WORK.AC.NUM ELSE R.AC.ERR = "RECORD NOT FOUND"
+    YR.RESTRICT = R.AC<AC.POSTING.RESTRICT>
+    AV.BAL = R.AC<AC.WORKING.BALANCE>
+    CL.BAL = R.AC<AC.ONLINE.CLEARED.BAL>
+    CR.BAL = R.AC<AC.ONLINE.ACTUAL.BAL>
+
+*Alteracao para considerar o online.cleared.bal se o working.balance for maior que online.cleared.bal
+* Sheila - 31/03/2016
+    IF AV.BAL GT CL.BAL THEN
+        AV.BAL = CL.BAL
+    END
+
+    YR.CCY.ID = R.AC<AC.CURRENCY>
+    GOSUB OPEN.CURRENCY.FILE
+    GOSUB READ.CURRENCY.FILE
+    YCCY.CODE = R.CURRENCY<EB.CUR.NUMERIC.CCY.CODE>
+
+    IF YR.RESTRICT <> '' THEN
+        AVAIL.BAL = 0
+        CURR.BAL = 0
+        RETURN
+    END
+
+    DATA.LOCK.EVENT = R.AC<AC.FROM.DATE>
+    AMT.LOCK.EVENT = R.AC<AC.LOCKED.AMOUNT>
+
+
+    AV.BAL = FMT(AV.BAL,"R2")
+    CR.BAL = FMT(CR.BAL,"R2")
+    YR.NO = COUNT(DATA.LOCK.EVENT,VM)
+    IF YR.NO = 1 THEN
+        YR.AMT = AMT.LOCK.EVENT<1,1>
+        YR.AMT = FMT(YR.AMT, "R2")
+        AV.BAL = AV.BAL - YR.AMT
+    END ELSE
+        FOR X = 1 TO YR.NO
+            IF TODAY EQ DATA.LOCK.EVENT<1,X> THEN
+                YR.AMT = AMT.LOCK.EVENT<1,X>
+                YR.AMT = FMT(YR.AMT, "R2")
+                AV.BAL = AV.BAL - YR.AMT
+                EXIT
+            END ELSE
+                IF TODAY LT DATA.LOCK.EVENT<1,X> THEN
+                    YR.AMT = AMT.LOCK.EVENT<1,X-1>
+                    YR.AMT = FMT(YR.AMT, "R2")
+                    AV.BAL = AV.BAL - YR.AMT
+                    EXIT
+                END
+            END
+        NEXT X
+    END
+
+    IF R.AC<AC.LIMIT.REF> THEN
+        YR.CUST.ID = R.AC<AC.CUSTOMER>
+        YR.LIMIT1 = FIELD(R.AC<AC.LIMIT.REF>, ".",1)
+        YR.LIMIT2 = FIELD(R.AC<AC.LIMIT.REF>, ".",2)
+        IF YR.LIMIT1 GE 100 AND YR.LIMIT1 LE 120 THEN
+            YR.LIMIT1 = FMT(YR.LIMIT1, "7'0'R")
+            YR.LIMIT2 = FMT(YR.LIMIT2, "2'0'R")
+            YR.CREDIT.LINE = YR.CUST.ID:".":YR.LIMIT1:".":YR.LIMIT2
+            FN.LIMIT = 'F.LIMIT'
+            F.LIMIT = ''
+            CALL OPF(FN.LIMIT,F.LIMIT)
+            R.LI = '' ; R.LI.ERR = ''
+            CALL F.READ(F.LIMIT,YR.CREDIT.LINE,R.LI,F.LIMIT,R.LI.ERR)
+            YR.LMT.CCY = R.LI<LI.LIMIT.CURRENCY>
+            YR.EXP.DATE = R.LI<LI.EXPIRY.DATE>
+            IF YR.EXP.DATE GE TODAY THEN
+                GOSUB CONVERT.LIMIT.TO.ACCT.CCY
+                YR.VALOR.LIM = YAMT2
+                AV.BAL = AV.BAL + YR.VALOR.LIM
+                CR.BAL = CR.BAL + YR.VALOR.LIM
+                AC.ATM.STATUS = '00'
+            END ELSE
+                AC.ATM.STATUS = '00'
+            END
+        END
+
+    END
+
+    IF R.AC<AC.POSTING.RESTRICT> EQ '' THEN
+        A.ATM.STATUS = '00'
+
+    END
+
+    IF LCCY <> R.AC<AC.CURRENCY> THEN
+        YCCY.ATM = AV.BAL
+        GOSUB CONVERT.AMOUNT.TO.ACCT.CCY
+        AVAIL.BAL = INT(YAMT2 * 100)
+
+        YCCY.ATM = CR.BAL
+        GOSUB CONVERT.AMOUNT.TO.ACCT.CCY
+        CURR.BAL = INT(YAMT2 * 100)
+    END ELSE
+        CURR.BAL = INT(CR.BAL * 100)
+        AVAIL.BAL = INT(AV.BAL * 100)
+    END
+    RETURN
+
+CONVERT.LIMIT.TO.ACCT.CCY:
+    YCCY1 = R.LI<LI.LIMIT.CURRENCY>
+    YAMT1 = R.LI<LI.AVAIL.AMT>
+    YCCY2 = R.AC<AC.CURRENCY>
+    YAMT2 = ""
+    IF YCCY1 <> YCCY2 THEN
+        Y.PROC.FLAG = ''
+        CALL LIMIT.CURR.CONV(YCCY1,YAMT1,YCCY2,YAMT2,Y.PROC.FLAG)
+    END ELSE
+        YAMT2 = YAMT1
+    END
+    RETURN
+
+CONVERT.AMOUNT.TO.ACCT.CCY:
+    YCCY2 = LCCY
+    YAMT1 = YCCY.ATM
+    YCCY1 = R.AC<AC.CURRENCY>
+    YAMT2 = ""
+    IF YCCY1 <> YCCY2 THEN
+        Y.PROC.FLAG = ''
+        CALL LIMIT.CURR.CONV(YCCY1,YAMT1,YCCY2,YAMT2,Y.PROC.FLAG)
+    END ELSE
+        YAMT2 = YAMT1
+    END
+    RETURN
+
+*******************
+READ.CURRENCY.FILE:
+*******************
+    ER = ""
+    CALL F.READ("F.CURRENCY",YR.CCY.ID,R.CURRENCY,F.CURRENCY,ER)
+    RETURN
+
+*******************
+OPEN.CURRENCY.FILE:
+*******************
+    FN.CURRENCY = 'F.CURRENCY'
+    F.CURRENCY = ''
+    CALL OPF(FN.CURRENCY,F.CURRENCY)
+    RETURN
+
+
+END

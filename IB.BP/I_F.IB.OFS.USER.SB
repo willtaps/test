@@ -1,0 +1,19 @@
+* I_F.IB.OFS.USER.SB Created 19 FEB 13 at 10:23PM by globus/MATSAU
+*      PREFIX[IB.EVE]
+            EQU IB.EVE.USER.ID TO 1,   IbOfsUserSb_UserId TO 1,
+             IB.EVE.RESERVED.7 TO 2,   IbOfsUserSb_Reserved7 TO 2,
+             IB.EVE.RESERVED.6 TO 3,   IbOfsUserSb_Reserved6 TO 3,
+             IB.EVE.RESERVED.5 TO 4,   IbOfsUserSb_Reserved5 TO 4,
+             IB.EVE.RESERVED.4 TO 5,   IbOfsUserSb_Reserved4 TO 5,
+             IB.EVE.RESERVED.3 TO 6,   IbOfsUserSb_Reserved3 TO 6,
+             IB.EVE.RESERVED.2 TO 7,   IbOfsUserSb_Reserved2 TO 7,
+             IB.EVE.RESERVED.1 TO 8,   IbOfsUserSb_Reserved1 TO 8,
+          IB.EVE.RECORD.STATUS TO 9,   IbOfsUserSb_RecordStatus TO 9,
+                IB.EVE.CURR.NO TO 10,  IbOfsUserSb_CurrNo TO 10,
+               IB.EVE.INPUTTER TO 11,  IbOfsUserSb_Inputter TO 11,
+              IB.EVE.DATE.TIME TO 12,  IbOfsUserSb_DateTime TO 12,
+             IB.EVE.AUTHORISER TO 13,  IbOfsUserSb_Authoriser TO 13,
+                IB.EVE.CO.CODE TO 14,  IbOfsUserSb_CoCode TO 14,
+              IB.EVE.DEPT.CODE TO 15,  IbOfsUserSb_DeptCode TO 15,
+           IB.EVE.AUDITOR.CODE TO 16,  IbOfsUserSb_AuditorCode TO 16,
+        IB.EVE.AUDIT.DATE.TIME TO 17,  IbOfsUserSb_AuditDateTime TO 17

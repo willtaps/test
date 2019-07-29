@@ -1,0 +1,70 @@
+    SUBROUTINE IB.MAINTAIN.LOG.FILES.SB.LOAD
+*
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INCLUDE IB.BP I_IB.MAINTAIN.LOG.FILES.SB.COMMON
+    $INCLUDE IB.BP I_F.IB.PARAMETER.SB
+*
+    GOSUB INITIALISE
+
+    GOSUB PROCESS
+
+    RETURN
+
+PROCESS:
+
+    CALL F.READ(FN.IB.PARAMETER, "SYSTEM", R.IB.PARAMETER, F.IB.PARAMETER, "")
+
+    YR.DAYS = R.IB.PARAMETER<IB.PARM.NO.LOG.DAYS>
+
+    IF NOT(YR.DAYS) THEN
+        YR.DAYS = 7
+    END
+
+    READ R.LOCK FROM F.LOCKING, "IB.ATM" THEN
+        YSEQ = R.LOCK<1>[6] * 1
+        YSEQ.KEEP = ""
+        YSEQ.KEEP = YSEQ
+        FOR X = 1 TO YR.DAYS
+            Y1 = YSEQ - 1
+            IF Y1 > 0 THEN
+                YSEQ.KEEP<-1> = Y1
+                YSEQ -= 1
+            END ELSE
+                YSEQ = 9999
+                YSEQ.KEEP<-1> = YSEQ
+            END
+        NEXT X
+
+*CUT.OFF.DATE = TODAY
+***Changed by D.Nyapfungwe 20 Mar 2018
+***use actual calendar day
+
+        YDATE.TIME = OCONV(DATE(),"D-")
+        CUT.OFF.DATE = FIELD(YDATE.TIME,"-",3):FIELD(YDATE.TIME,"-",1):FIELD(YDATE.TIME,"-",2)
+****
+
+        YDAYS = "-" : YR.DAYS : "C"
+
+        CALL CDT("",CUT.OFF.DATE,YDAYS)
+    END
+
+    RETURN
+
+INITIALISE:
+
+    FN.IB.ATM.MESSAGE.LOG.SB = "F.IB.ATM.MESSAGE.LOG.SB"
+    F.IB.ATM.MESSAGE.LOG.SB = ""
+    CALL OPF(FN.IB.ATM.MESSAGE.LOG.SB, F.IB.ATM.MESSAGE.LOG.SB)
+
+    FN.LOCKING = "F.LOCKING"
+    F.LOCKING = ""
+    CALL OPF(FN.LOCKING, F.LOCKING)
+
+    FN.IB.PARAMETER = "F.IB.PARAMETER.SB"
+    F.IB.PARAMETER = ""
+    CALL OPF(FN.IB.PARAMETER, F.IB.PARAMETER)
+
+    RETURN
+
+END

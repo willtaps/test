@@ -1,0 +1,76 @@
+*-----------------------------------------------------------------------------
+* <Rating>55</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SB.FILTER.EDST
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+*   Inicio do Programa
+
+    GOSUB PROCESS
+
+    RETURN
+
+*       Fim do Programa
+
+
+************
+PROCESS:
+************
+
+    FN.TEMP = "PRE.CLEARING"
+    F.TEMP = ""
+    CALL OPF(FN.TEMP,F.TEMP)
+
+*FN.CLEARING = "CLEARING" ; F.CLEARING = ''
+*CALL OPF(FN.CLEARING,F.CLEARING)
+
+    YMODENV.1.LIST = ''
+    YMODENV.0.LIST = ''
+
+    SEL.CMD = 'SELECT ':FN.TEMP:' WITH @ID LIKE EDST...'
+*    SEL.CMD = 'SELECT ':FN.TEMP:' WITH @ID LIKE EDST_3_20160802180627_2...'
+    CALL EB.READLIST(SEL.CMD,TEMP.LIST,'',FNO,YERR)
+
+    LOOP
+        REMOVE TEMP.ID FROM TEMP.LIST SETTING MORE
+        READ R.TEMP FROM F.TEMP,TEMP.ID ELSE R.TEMP = ''
+    WHILE TEMP.ID
+
+        EDST.LIST = R.TEMP
+
+        CNT = DCOUNT(EDST.LIST,@FM)
+
+        CRT "PROCESSANDO ":TEMP.ID
+        FOR K = 1 TO CNT
+            YEDST.REC = EDST.LIST<K>
+            YMODENV = YEDST.REC[16,1]
+            YEDST.TYPE = YEDST.REC[1,1]
+            IF YEDST.TYPE EQ 0 OR YEDST.TYPE EQ 9 THEN
+                YMODENV.0.LIST<-1> = YEDST.REC
+                YMODENV.1.LIST<-1> = YEDST.REC
+            END ELSE
+                IF YMODENV EQ 0 THEN
+                    YMODENV.0.LIST<-1> = YEDST.REC
+                END ELSE
+                    YMODENV.1.LIST<-1> = YEDST.REC
+                END
+            END
+        NEXT K
+
+        DELETE F.TEMP,TEMP.ID ON ERROR NULL
+        REPORT<-1> = ''
+
+
+        OPEN '','CLEARING' TO F.INPUT.FILE ELSE PRINT 'CAN NOT OPEN CLEARING'
+        WRITE YMODENV.0.LIST TO F.INPUT.FILE,TEMP.ID:'_MODENV0'
+
+        OPEN '','PRE.CLEARING' TO F.INPUT.FILE ELSE PRINT 'CAN NOT OPEN PRE.CLEARING'
+        WRITE YMODENV.1.LIST TO F.INPUT.FILE,'MODENV1_':TEMP.ID
+
+        OPEN '','PRE.CLEARING' TO F.INPUT.FILE ELSE PRINT 'CAN NOT OPEN PRE.CLEARING'
+        WRITE R.TEMP TO F.INPUT.FILE,'ORIGINAL_':TEMP.ID
+    REPEAT
+    RETURN
+END

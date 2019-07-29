@@ -1,0 +1,203 @@
+    SUBROUTINE SB.VALIDA.CARD.NO
+
+*********************************************
+*Develop By : Priti Carsane
+*Developed for: Standard Bank Mozambique
+*
+*Summary Description: This validation routine is to be attached to the card number field
+*checks if the card number has been used or not. Checks as well in SB.INSTANT.CARD table
+*if the sequence number is available or not.
+*
+*Development Date: 05/02/2015
+**********************************************
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.SB.IB.CARD.ISSUE
+    $INSERT I_F.SB.PARAMETRO.IB
+    $INSERT BP I_F.SB.INSTANT.CARD
+    $INSERT BP I_F.SB.IB.CREAT.NPER
+
+
+    GOSUB INIT
+
+**verifies if the card.no inputted has been used
+    GOSUB READ.COMPANIES
+**validades the bin code
+    GOSUB VALIDATES.BIN
+**validades check digit
+    GOSUB GET.FULL.CARD.NUMBER
+    R.NEW(IBCI.NUMCAR) = YCARD.SEQ
+
+    RETURN
+
+INIT:
+    FN.SB.INSTANT.CARD = 'F.EB.SB.INSTANT.CARD'
+    FV.SB.INSTANT.CARD = ''
+    CALL OPF(FN.SB.INSTANT.CARD,FV.SB.INSTANT.CARD)
+
+    FN.SB.IB.CREAT.NPER = 'F.EB.SB.IB.CREAT.NPER'
+    FV.SB.IB.CREAT.NPER = ''
+    CALL OPF(FN.SB.IB.CREAT.NPER,FV.SB.IB.CREAT.NPER)
+
+    FN.SB.PARAMETRO.IB = 'F.SB.PARAMETRO.IB'
+    FV.SB.PARAMETRO.IB = ''
+    CALL OPF(FN.SB.PARAMETRO.IB,FV.SB.PARAMETRO.IB)
+
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+    YCARD.NO = COMI
+    YCARD.BIN = YCARD.NO[1,8]
+    YCARD.SEQ = YCARD.NO[9,7]
+    Y.CARD.CD = YCARD.NO[16,1]
+
+    RETURN
+
+
+
+
+
+VALIDATES.BIN:
+    GOSUB CHECK.INSTANT.CARD
+    CARD.PARAM = R.NEW(IBCI.PARAMETER)
+    CALL F.READ(FN.SB.PARAMETRO.IB,CARD.PARAM,R.CARD.PARAM,FV.SB.PARAMETRO.IB,PARAM.ERR)
+    CARD.ID = "P24"
+*---- Inicio do calculo do check digit do cartao
+
+    YBIN = R.CARD.PARAM<IBPARAM.BIN>
+    YEXBIN = R.CARD.PARAM<IBPARAM.EXBIN>
+    YCARD.BNN = YBIN:YEXBIN:
+    YCARD.NUMBER = YBIN:YEXBIN:YCARD.SEQ
+
+    IF YCARD.BIN # YCARD.BNN THEN
+        E = 'INVALID CARD NUMBER!'
+        ETEXT = 'INVALID CARD NUMBER!'
+        CALL STORE.END.ERROR
+        RETURN
+    END
+
+
+    RETURN
+
+
+GET.FULL.CARD.NUMBER:
+    YCARD.NUMBER = YCARD.BIN:YCARD.SEQ
+    YR.NO = LEN(YCARD.NUMBER)
+    YR.VAL = 0
+    ETEXT = '' ; E = ''
+    IF YR.NO EQ 15 THEN
+
+        FOR I = 0 TO (YR.NO - 1) STEP 2
+            YR.TMP1 = 0 ; YR.TMP2 = 0 ; YR.TMP3 = 0
+            YR.TMP1 = YCARD.NUMBER[YR.NO-I,1] * 2
+
+            FOR J = 1 TO LEN(YR.TMP1)
+                YR.TMP2 = YR.TMP2 + YR.TMP1[J,1]
+            NEXT J
+
+            IF (YR.NO - I) > 1 THEN
+                YR.TMP3 = YR.TMP2 + YCARD.NUMBER[(YR.NO - I) - 1,1]
+            END ELSE
+                IF MOD(YR.NO,2) > 0 THEN
+                    YR.TMP3 = YR.TMP2
+                END
+            END
+
+            YR.VAL = YR.VAL + YR.TMP3
+
+        NEXT I
+
+        LOOP
+        WHILE YR.VAL > 0
+            YR.VAL = YR.VAL - 10
+        REPEAT
+
+        YR.CHK.DIGIT = YR.VAL * -1
+        YFULL.CARD.NUMBER = YCARD.NUMBER:YR.CHK.DIGIT
+
+
+    END ELSE
+        E = 'ERRO NO BIN, BALCAO OU SEQUENCIA'
+        ETEXT = 'ERRO NO BIN, BALCAO OU SEQUENCIA!'
+        CALL STORE.END.ERROR
+        RETURN
+    END
+
+    ETEXT = '' ; E = ''
+    IF YR.CHK.DIGIT # Y.CARD.CD THEN
+        ETEXT =  'PLEASE DOUBLE CHECK THE CARD NUMBER!'
+        E = 'PLEASE DOUBLE CHECK THE CARD NUMBER!'
+        CALL STORE.END.ERROR
+        RETURN
+    END
+
+    RETURN
+
+
+CHECK.INSTANT.CARD:
+    CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+    SEL.CMD = 'SELECT ':FN.SB.INSTANT.CARD:' WITH CARD.ID EQ ':YCARD.SEQ:' AND BRANCH EQ ':ID.COMPANY
+    CALL EB.READLIST(SEL.CMD,CARD.LIST,'',CARD.NO,CARD.ERR)
+
+    IF CARD.NO GT 0 THEN
+
+        FOR II = 1 TO CARD.NO
+            CARD.ID = CARD.LIST<II>
+
+            R.CARD = ''
+            READ R.CARD FROM FV.SB.INSTANT.CARD,CARD.ID ELSE R.CARD = ''
+
+            IF R.CARD<EB.SB.STATUS> EQ "USED" THEN
+                E = 'CARD NUMBER HAS BEEN USED!'
+                ETEXT = 'CARD NUMBER HAS BEEN USED!'
+                CALL STORE.END.ERROR
+                RETURN
+            END
+        NEXT II
+
+    END ELSE
+        E = 'PLEASE DOUBLE CHECK THE CARD NUMBER!'
+        ETEXT = 'PLEASE DOUBLE CHECK THE CARD NUMBER!'
+        CALL STORE.END.ERROR
+        RETURN
+    END
+
+    RETURN
+
+READ.COMPANIES:
+    CO.LIST = '' ; CO.NO = '' ; CO.ERR = ''
+    SEL.CO = 'SSELECT ':FN.COMPANY:' WITH CONSOLIDATION.MARK EQ "N" SAVING MNEMONIC'
+    CALL EB.READLIST(SEL.CO,CO.LIST,'',CO.NO,CO.ERR)
+
+    LOOP
+        REMOVE YR.MNEM FROM CO.LIST SETTING MORE1
+    WHILE YR.MNEM:MORE1
+        GOSUB OPEN.CARD.FILE
+    REPEAT
+    RETURN
+
+
+OPEN.CARD.FILE:
+    FN.CARD.ISSUE = 'F':YR.MNEM:'.CARD.ISSUE'
+    F.CARD.ISSUE = ''
+    CALL OPF(FN.CARD.ISSUE,F.CARD.ISSUE)
+    GOSUB PROCESS
+    RETURN
+
+PROCESS:
+    E= '' ; ETEXT = ''
+    CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+    SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH CARD.TYPE.NO EQ P24.':YCARD.NO
+    CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+    IF CARD.NO EQ 1 THEN
+        E = 'CARD NUMBER USED!'
+        ETEXT = 'CARD NUMBER USED!'
+        CALL STORE.END.ERROR
+        RETURN
+    END
+
+    RETURN
+END

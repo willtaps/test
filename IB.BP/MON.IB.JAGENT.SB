@@ -1,0 +1,58 @@
+    PROGRAM MON.IB.JAGENT.SB
+*
+    $INCLUDE JBC.h
+*
+    YR.PORT.ID = TRIM(@SENTENCE[" ",2,1])
+*
+    YR.INTERVAL = 30
+*
+    OPEN SYSTEM(1027) TO F.PROC THEN
+        PROC.OPEN =1
+    END
+*
+    OPEN '','JBASE.MON' TO F.MON ELSE
+        EXEC 'CREATE-FILE JBASE.MON TYPE=UD'
+        OPEN '','JBASE.MON' TO F.MON ELSE NULL
+    END
+
+    YSEP = "|"
+*
+    YR.STOP = 0
+    CMD = "SH ps -ef | grep jbase_agent | grep " : YR.PORT.ID : " | grep -v grep | awk {'print $2'}"
+
+    LOOP
+    UNTIL (YR.STOP = 'Q' OR YR.STOP = 'q' )
+        EXEC CMD CAPTURING MSG
+        CRT @(-1):@(0,0):
+        TEMP.REC = ""
+        YNO = DCOUNT(MSG, @FM)
+        FOR X = 1 TO YNO
+            YR.PROCESS.ID = TRIM(MSG<X>)
+            IF YR.PROCESS.ID THEN
+                YR.PORT.NO = JBASEGetPortFromPid(YR.PROCESS.ID)
+                READ YPROCESS FROM F.PROC, YR.PORT.NO THEN
+                    YR.FREE.MEM = YPROCESS<13>
+                    YR.USED.MEM = YPROCESS<14>
+                    YR.OPEN.FIL = YPROCESS<18>
+                    YR.DELE.FIL = YPROCESS<19>
+                    YR.WRIT.FIL = YPROCESS<20>
+                    YR.CLEA.FIL = YPROCESS<22>
+                    YR.EXEC.FIL = YPROCESS<23>
+                    YR.INPS.FIL = YPROCESS<24>
+                    YR.PROG     = YPROCESS<41>
+                    YR.LINE     = YPROCESS<42>
+                    YR.PROG.DET = YPROCESS<46>
+                    YLINE = YR.PORT.NO : YSEP : YR.FREE.MEM:YSEP:YR.USED.MEM:YSEP:YR.OPEN.FIL:YSEP:YR.DELE.FIL:YSEP:YR.WRIT.FIL:YSEP:YR.CLEA.FIL:YSEP:YR.EXEC.FIL:YSEP:YR.INPS.FIL:YSEP:YR.PROG:YSEP:YR.LINE:YSEP:YR.PROG.DET:YSEP:OCONV(TIME(),'MTS')
+                    TEMP.REC<-1> = YLINE
+                END
+            END
+        NEXT X
+        TEMP.ID = YR.PORT.ID :'.': DATE():TIME()
+        WRITE TEMP.REC TO F.MON, TEMP.ID ON ERROR NULL
+        INPUT YR.STOP FOR YR.INTERVAL*10 THEN
+        END
+    REPEAT
+
+    STOP
+
+END

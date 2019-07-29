@@ -1,0 +1,61 @@
+    SUBROUTINE SB.UPDATE.CARD.IB
+
+***********************************************************
+**** Rotina para corrigir o cartao nas conta com       ****
+**** prefixo P24                                       ****
+**** Criada por : Sheila Osman                         ****
+**** Data : 01/04/2016                                 ****
+***********************************************************
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.ACCOUNT
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+    CO.LIST = '' ; CO.NO = '' ; CO.ERR = ''
+    SEL.CO = 'SSELECT ':FN.COMPANY:' WITH CONSOLIDATION.MARK EQ "N" SAVING  MNEMONIC'
+    CALL EB.READLIST(SEL.CO,CO.LIST,'',CO.NO,CO.ERR)
+    LOOP
+        REMOVE MNE FROM CO.LIST SETTING MORE1
+    WHILE MNE:MORE1
+
+        IF MNE NE 'BNK' THEN
+
+            FN.ACCOUNT = 'F':MNE:'.ACCOUNT'
+            FV.ACCOUNT = ''
+            CALL OPF(FN.ACCOUNT,FV.ACCOUNT)
+            CONTA.LIST = '' ; CONTA.NO = '' ; CONTA.ERR = ''
+            SEL.AC = 'SELECT ':FN.ACCOUNT:' '
+            CALL EB.READLIST(SEL.AC,CONTA.LIST,'',CONTA.NO,CONTA.ERR)
+            FOR I = 1 TO CONTA.NO
+                AC.ID = CONTA.LIST<I>
+                CRT 'Processando Registo: ':AC.ID:' Companhia ':MNE
+
+                R.AC = ''
+                CALL F.READ(FN.ACCOUNT,AC.ID,R.AC,FV.ACCOUNT,R.AC.ERR)
+*CALL GET.LOC.REF("ACCOUNT", "FULL.CARD.NO", Y.POS)
+*YAC.CARD = R.NEW(AC.LOCAL.REF)<1,Y.POS>
+
+                YAC.CARD = R.AC<AC.LOCAL.REF,27>
+                CRT 'Processando Cartao:':YAC.CARD
+                CNT = DCOUNT(YAC.CARD,@SM)
+                FOR K = 1 TO CNT
+                    YCARD.ID = YAC.CARD<1,1,K>
+                    YCARD.SUF = FIELD(YCARD.ID,'.',1)
+                    YCARD.PRE = FIELD(YCARD.ID,'.',2)
+                    IF YCARD.SUF NE "P24" THEN
+                        R.AC<AC.LOCAL.REF,27,K> = "P24.":YCARD.ID
+                    END
+                NEXT K
+                WRITE R.AC TO FV.ACCOUNT,AC.ID
+            NEXT I
+        END
+
+    REPEAT
+
+
+END

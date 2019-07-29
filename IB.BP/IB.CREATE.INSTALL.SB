@@ -1,0 +1,186 @@
+    PROGRAM IB.CREATE.INSTALL.SB
+
+    $INCLUDE I_COMMON
+    $INSERT I_ENQUIRY.COMMON
+    $INCLUDE I_EQUATE
+
+    EXEC "COMO ON IB.CREATE.INSTALL.SB"
+
+    GOSUB INITIALISE
+
+    GOSUB PROCESS
+
+    EXEC "COMO OFF"
+
+    STOP
+
+INITIALISE:
+
+    OPEN "", "IB.BP" TO F.SAVE ELSE NULL
+
+    SAVE.ID = "I_F.OFS.INSTALL"
+
+    YR.OUTPUT = ""
+
+    V$FUNCTION = "GET.PARAM"
+    YNO = 0
+    YLIST =""
+    CMD = "SELECT F.PGM.FILE WITH @ID LIKE IB...SB WITH F1 EQ 'H'"
+    EXEC CMD
+    LOOP
+        READNEXT YID ELSE YID = ""
+    WHILE YID DO
+        YLIST<-1> = YID
+        YNO += 1
+    REPEAT
+
+    GOSUB PROCESS
+
+    YLIST = ""
+    YLIST<-1>="OFS.SOURCE>IBATM"
+    YLIST<-1>="PGM.FILE>IB.ATM.MSG.IN"
+    YLIST<-1>="PGM.FILE>IB.ATM.MSG.OUT"
+    YLIST<-1>="PGM.FILE>IB.ATM.MSG.POST"
+    YLIST<-1>="HELPTEXT.MENU>IB"
+
+    GOSUB PROCESS
+
+    WRITE YR.OUTPUT TO F.SAVE, SAVE.ID
+
+    STOP
+
+    RETURN
+
+PROCESS:
+
+    YAPPL.LIST = "PGM.FILE" : FM : "STANDARD.SELECTION" : FM : "FILE.CONTROL"
+
+    LIST.NO = DCOUNT(YLIST,@FM)
+    FOR ZZ = 1 TO 2
+        FOR X = 1 TO LIST.NO
+            YLINE = YLIST<X>
+            YACTION = YLINE[">", 2, 1]
+            YAPPL = YLINE[">", 1, 1]
+            IF NOT(YACTION) THEN
+                IF ZZ = 1 THEN
+                    YACTION = "INSTALL"
+                END ELSE
+                    YACTION = "ALL"
+                END
+            END
+
+            CURR.POS = 99999
+            BEGIN CASE
+
+            CASE YACTION = "INSTALL"
+
+                FOR DDD = 1 TO 2
+                    APP.NAME = YAPPL.LIST<DDD>
+                    OFSFUNCT = "I"
+                    PROCESS = "PROCESS"
+                    OFSVERSION = ","
+                    GTSMODE = 1
+                    NO.OF.AUTH = 0
+
+                    R.RECORD = ""
+                    TRANSACTION.ID = YAPPL
+                    FN.APPL = "F." : APP.NAME
+                    OPEN "",FN.APPL TO F.APPL ELSE NULL
+                    READ R.RECORD FROM F.APPL, TRANSACTION.ID THEN
+                        IF DDD = 2 THEN
+                            R.RECORD<28> = "Y"
+                        END
+                        GOSUB CREATE.OFS
+                    END
+
+                NEXT DDD
+
+                APP.NAME = "VERSION"
+                OFSFUNCT = "I"
+                PROCESS = "PROCESS"
+                OFSVERSION = ","
+                GTSMODE = 1
+                NO.OF.AUTH = 0
+                R.RECORD = ""
+                TRANSACTION.ID = YAPPL : ",OFS"
+                FN.APPL = "F." : APP.NAME
+                OPEN "",FN.APPL TO F.APPL ELSE NULL
+                READ R.RECORD FROM F.APPL, TRANSACTION.ID THEN
+                    GOSUB CREATE.OFS
+                END
+
+            CASE YACTION = "ALL"
+                FN.APPL = "F." : YAPPL
+
+                CALL CACHE.READ("F.STANDARD.SELECTION", YAPPL, SS.REC, YERR)
+                LOCATE "CURR.NO" IN SS.REC<1,1> SETTING CURR.POS THEN
+                    CURR.POS = SS.REC<3,CURR.POS>
+                END
+                CMD = "SELECT F." : YAPPL
+                CLEARSELECT
+                YID.LIST = "" ; YID.NO = ""
+                CALL EB.READLIST(CMD, YID.LIST, "", YID.NO, "")
+
+                OPEN "",FN.APPL TO F.APPL ELSE NULL
+
+                APP.NAME = YAPPL
+                OFSFUNCT = "I"
+                PROCESS = "PROCESS"
+                OFSVERSION = ",OFS"
+                GTSMODE = 1
+                NO.OF.AUTH = 0
+
+                FOR KK = 1 TO YID.NO
+                    TRANSACTION.ID = YID.LIST<KK>
+                    READ R.RECORD FROM F.APPL , TRANSACTION.ID THEN
+                        YL = DCOUNT(R.RECORD,@FM)
+                        FOR NN = CURR.POS TO YL
+                            R.RECORD<NN> = ""
+                        NEXT NN
+                        GOSUB CREATE.OFS
+                    END
+                NEXT KK
+            CASE 1
+
+                APP.NAME = YAPPL
+
+                CALL CACHE.READ("F.STANDARD.SELECTION", YAPPL, SS.REC, YERR)
+                LOCATE "CURR.NO" IN SS.REC<1,1> SETTING CURR.POS THEN
+                    CURR.POS = SS.REC<3,CURR.POS>
+                END
+                OFSFUNCT = "I"
+                PROCESS = "PROCESS"
+                OFSVERSION = ",OFS"
+                GTSMODE = 1
+                NO.OF.AUTH = 0
+                FN.APPL = "F." : YAPPL
+                TRANSACTION.ID = YACTION
+                OPEN "",FN.APPL TO F.APPL ELSE NULL
+                READ R.RECORD FROM F.APPL , TRANSACTION.ID THEN
+                    YL = DCOUNT(R.RECORD,@FM)
+                    FOR NN = CURR.POS TO YL
+                        R.RECORD<NN> = ""
+                    NEXT NN
+                    GOSUB CREATE.OFS
+                END
+            END CASE
+        NEXT X
+    NEXT ZZ
+
+
+    RETURN
+
+CREATE.OFS:
+
+    YCOMP = ID.COMPANY
+    YFUNC = OFSFUNCT : FM : "NO.UPDATE"
+    OFSR.RECORD = ""
+    CALL OFS.XML.IHLD.INAU.SB( YCOMP, APP.NAME, TRANSACTION.ID, OFSVERSION, YFUNC, OFSR.RECORD)
+    YKEY = APP.NAME : ">" : TRANSACTION.ID
+    CRT YKEY
+    YR.OUTPUT<-1> = YKEY : "|" : OFSR.RECORD
+
+    RETURN
+
+
+END

@@ -1,0 +1,133 @@
+*********************************************
+*Develop By : Priti Carsane
+*Developed for: Standard Bank Mozambique
+*
+*Summary Description: This input routine verifies the cards status
+*if is equal to "3-Recebido a agencia" or "4-Entregue ao cliente" proceds, else gives an error message
+*
+*Development Date: 15/06/2015
+**********************************************
+
+    SUBROUTINE V.VALI.DELIVER.CARD
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.COMPANY
+    $INSERT BP I_F.SB.CARD.RECEIVE
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.ACCOUNT
+
+    GOSUB INITIALISE
+    GOSUB PROCESS.CARDS
+
+    RETURN
+
+
+
+***********
+INITIALISE:
+***********
+    YCARD.TYPE = '';  YCARD.ID='' ; YCARD.ID2='' ; YACCT.ID = ''
+
+    YCARD.TYPE = R.NEW(EB.DEV.HLP.TIPO.CARTAO)
+    YCARD.ID = YCARD.TYPE:'.':R.NEW(EB.DEV.HLP.NUMERO.CARTAO)
+    YCARD.ID2 = R.NEW(EB.DEV.HLP.NUMERO.CARTAO)
+    YACCT.ID = R.NEW(EB.DEV.HLP.NUMERO.CONTA)
+
+    CALL GET.ACCT.BRANCH(YACCT.ID,MNEM,YCOMP)
+
+    FN.CARD.ISSUE = 'F':MNEM:'.CARD.ISSUE'
+    FV.CARD.ISSUE = ''
+    CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+
+    FN.CIH = 'F':MNEM:'.CARD.ISSUE$HIS'
+    F.CIH = ''
+    CALL OPF(FN.CIH,F.CIH)
+
+
+
+    RETURN
+
+
+
+
+**************
+PROCESS.CARDS:
+**************
+
+    R.CARD = '' ; ER =''
+    CALL F.READ(FN.CARD.ISSUE,YCARD.ID,R.CARD,FV.CARD.ISSUE,ER)
+
+    IF R.CARD THEN
+        YCARD.SITUACAO = R.CARD<CARD.IS.LOCAL.REF,1>
+
+        IF R.CARD<CARD.IS.ACCOUNT> EQ YACCT.ID THEN
+
+            GOSUB UPDATE.CARD
+
+        END ELSE
+            E = "Numero de Conta nao correspondente"
+            ETEXT = "Numero de Conta nao correspondente"
+            CALL STORE.END.ERROR
+            RETURN
+        END
+    END ELSE
+        E = "CARTAO INEXISTENTE"
+        ETEXT = "CARTAO INEXISTENTE"
+        CALL STORE.END.ERROR
+
+    END
+
+
+    RETURN
+
+
+
+
+************************
+UPDATE.CARD:
+************************
+    IF V$FUNCTION EQ 'I' THEN
+        NEW.ID = ''
+        IF R.CARD<CARD.IS.LOCAL.REF,1> EQ "1" THEN
+            E = "CARTAO NAO RECEBIDO NA UMP"
+            ETEXT = "CARTAO NAO RECEBIDO NA UMP"
+            CALL STORE.END.ERROR
+
+        END
+
+        IF R.CARD<CARD.IS.LOCAL.REF,1> EQ "2" THEN
+
+            E = "CARTAO NAO ESTA NO BALCAO"
+            ETEXT = "CARTAO NAO ESTA NO BALCAO"
+            CALL STORE.END.ERROR
+            RETURN
+        END
+        IF R.CARD<CARD.IS.LOCAL.REF,1> EQ "0" THEN
+
+            E = "CARTAO ACTIVO"
+            ETEXT = "CARTAO ACTIVO"
+            CALL STORE.END.ERROR
+            RETURN
+        END
+
+    END
+
+    RETURN
+
+
+
+UPDATE.ACCT:
+    FN.ACCOUNT = 'F':MNEM:'.ACCOUNT'
+    FV.ACCOUNT = ''
+    CALL OPF(FN.ACCOUNT,FV.ACCOUNT)
+
+    R.ACT = '' ; AC.ERR = ''
+    CALL F.READ(FN.ACCOUNT,YACCT.ID,R.ACT,FV.ACCOUNT,AC.ERR)
+    YNO.CARDS = DCOUNT(R.ACT<AC.LOCAL.REF,81>,@SM)
+    R.ACT<AC.LOCAL.REF,81,YNO.CARDS+1> =  YCARD.ID2
+
+    WRITE R.ACT TO FV.ACCOUNT,YACCT.ID
+
+END

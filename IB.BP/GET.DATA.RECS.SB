@@ -1,0 +1,34 @@
+    PROGRAM GET.DATA.RECS.SB
+*
+     OPEN "","../bnk.atm" TO F.ATM ELSE
+         EXEC "mkdir ../bnk.atm"
+     END
+*
+     OPEN "","../bnk.atm/eb" TO F.EB ELSE
+         EXEC "mkdir ../bnk.atm/eb"
+     END
+
+    CMD.SEL = "SELECT VOC WITH @ID LIKE F.IB.... OR @ID LIKE F.SIBS... OR @ID LIKE F.ATM..."
+*
+    CRT  CMD.SEL
+*
+    EXEC CMD.SEL
+    LOOP
+        READNEXT YID ELSE YID = ""
+    WHILE YID DO
+        CRT YID
+        CMD = "jshow -c " : YID
+        EXEC CMD CAPTURING MSG
+        YPATH = TRIM(MSG[":",2,1])
+        TO.PATH = CHANGE(YPATH,"bnk.data","bnk.atm")
+        CMD = "cp " :YPATH : " " : TO.PATH
+        CRT CMD
+        EXEC CMD
+    REPEAT
+
+   CMD = "SH -c 'tar -cvf atm.tar ../bnk.atm IB.BP SIBS.BP'"
+   EXEC CMD
+
+   STOP
+
+END

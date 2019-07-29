@@ -1,0 +1,64 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.GET.USER.INFO(YUSER.NO, YUSER.INFO)
+*
+******************************************************************************
+* Development Date      : February 2016
+* Developed for         : Standard Bank SA
+* Developed By          : Leovigildo Reis
+******************************************************************************
+* Table readed          : OFS.USER.SB, IB.OFS.USER.SB
+* External Subroutine   : IB.ATM.OFS.SB
+* Summary Description   :
+* Revision/Change       : Version 1.0
+* Revision/Change Note  :
+* Revision/Change Date  :
+* Revision/Change By    :
+******************************************************************************
+*
+*
+    $INCLUDE I_EQUATE
+    $INCLUDE I_COMMON
+    $INCLUDE I_F.USER
+    $INCLUDE IB.BP I_F.IB.OFS.USER.SB
+    $INCLUDE OFS.BP I_F.OFS.USER.SB
+
+
+    YUSER.INFO = '' ; R.IB.OFS.USER.SB = ''
+
+    FN.IB.OFS.USER.SB = "F.IB.OFS.USER.SB"
+    F.IB.OFS.USER.SB = ""
+    CALL OPF(FN.IB.OFS.USER.SB, F.IB.OFS.USER.SB)
+
+    READ R.IB.OFS.USER.SB FROM F.IB.OFS.USER.SB, YUSER.NO THEN
+        YOFS.USER.ID = R.IB.OFS.USER.SB<IB.EVE.USER.ID>
+
+        FN.OFS.USER.SB = "F.OFS.USER.SB"
+        F.OFS.USER.SB = ""
+        CALL OPF(FN.OFS.USER.SB, F.OFS.USER.SB)
+
+        FN.USER = 'F.USER'
+        F.USER = ''
+        CALL OPF(FN.USER, F.USER)
+
+        READ R.USER FROM F.USER, YOFS.USER.ID THEN
+            YUSER.SON = R.USER<EB.USE.SIGN.ON.NAME>
+            READ R.OFS.USER.SB FROM F.OFS.USER.SB, YOFS.USER.ID ELSE NULL
+
+            YPWORD = R.OFS.USER.SB<SB.OFS.PASSWORD>
+            IF R.OFS.USER.SB<SB.OFS.PASSWORD+1> THEN
+                YPWORD := FM:R.OFS.USER.SB<SB.OFS.PASSWORD+1>
+            END
+
+            IF YPWORD THEN
+                CALL OFS.USER.ENCR.DECR.SB(YPWORD, "DE")
+            END
+            YUSER.INFO<1> = YUSER.SON
+            YUSER.INFO<2> = YPWORD
+        END
+    END
+
+    RETURN
+
+END

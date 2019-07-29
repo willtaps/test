@@ -1,0 +1,254 @@
+    SUBROUTINE IB.ATM.MSG.TEMP.OUT (YMSG)
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+    COM/IB/MSG
+
+    GOSUB INITIALISE
+
+    GOSUB SPLIT.IN.MSG
+
+    GOSUB PROCESS.RESPONSE
+
+    YMSG = YMSG.OUT
+
+    RETURN
+
+SPLIT.IN.MSG:
+
+    Y.IN.DATA = ""
+    YNO = DCOUNT(Y.IN.CONFIG, @FM)
+    FOR X = 1 TO YNO
+        YDATA<1,X> = Y.IN.CONFIG<X>[",",1,1]
+        ST1 = Y.IN.CONFIG<X>[",",2,1]
+        ST2 = Y.IN.CONFIG<X>[",",3,1]
+        YDATA<2,X> = MSG[ST2,ST1]
+    NEXT X
+
+    RETURN
+
+PROCESS.RESPONSE:
+
+    YMSG.OUT = ""
+    YINDEX = 1
+
+    YBAL = 35000
+    YVAIL = 29000
+    YREPEAT.TAGS = ""
+    IF YMSG.TYPE = "1151" THEN
+        YREPEAT.TAGS = 318 : FM : 23 : FM : 24 : FM : 25
+        TAG.21 = 5
+        YTRANS.ARRAY = ""
+        YTRANS.ARRAY<-1> = "FT" : @VM : "Cash Withdrwal" : @VM : "20120101" : @VM : "20000" : @VM : "D" : @VM : 943
+        YTRANS.ARRAY<-1> = "FT" : @VM : "ATM Beira" : @VM : "20120102" : @VM : "21000" : @VM : "D" : @VM : 943
+        YTRANS.ARRAY<-1> = "DC" : @VM : "Transfer" : @VM : "20120103" : @VM : "22000" : @VM : "D" : @VM : 943
+        YTRANS.ARRAY<-1> = "TT" : @VM : "Cash Withdrwal" : @VM : "20120104" : @VM : "24000" : @VM : "D" : @VM : 943
+        YTRANS.ARRAY<-1> = "FT" : @VM : "Salary " : @VM : "20120104" : @VM : "1020000" : @VM : "D" : @VM : 943
+        Y.OUT.CONFIG = Y.OUT.CONFIG.MINI
+    END
+
+    IN.OUT.DATA = ""
+    YNO = DCOUNT(Y.OUT.CONFIG, @FM)
+    YSKIP = 0
+    FOR X = 1 TO YNO
+        YTAG = Y.OUT.CONFIG<X>[",",1,1]
+        TAG.VALUE = ""
+        LOCATE YTAG IN YDATA<1,1> SETTING POS THEN
+            TAG.VALUE = YDATA<2,POS>
+        END
+
+        BEGIN CASE
+        CASE YTAG = "1"
+            TAG.VALUE += 100
+            Y.CALC.VALUE = TAG.VALUE
+        CASE YTAG = "12"
+            Y.CALC.VALUE  = "0"
+        CASE YTAG = "27"
+            Y.CALC.VALUE = YBAL
+            YBAL = 0
+        CASE YTAG = 318
+            Y.CALC.VALUE = "C"
+        CASE YTAG = 19
+            Y.CALC.VALUE = YVAIL
+            YAVIL = 0
+        CASE YTAG = 20
+            Y.CALC.VALUE = TODAY
+
+        CASE YTAG = "13"
+            Y.CALC.VALUE = "000"
+
+        CASE YTAG = 21
+            IF YREPEAT.TAGS THEN
+                GOSUB PROCESS.REPEAT.DATA
+                YSKIP = 1
+            END
+
+        CASE OTHERWISE
+            Y.CALC.VALUE = TAG.VALUE
+        END CASE
+        IF NOT(YSKIP) THEN
+            YPOS = X
+            GOSUB FMT.VALUE
+            YMSG.OUT := Y.CALC.VALUE
+        END
+
+    NEXT X
+
+
+    RETURN
+
+
+PROCESS.REPEAT.DATA:
+
+    X.SAVE = X
+
+    Y.CALC.VALUE = TAG.21
+    YPOS = X
+    GOSUB FMT.VALUE
+    YMSG.OUT := Y.CALC.VALUE
+    NO.VM = DCOUNT(YTRANS.ARRAY<1>,@VM)
+    FOR K = 1 TO TAG.21
+        FOR ZZ = 1 TO NO.VM
+            YTAG = Y.OUT.CONFIG<X+ZZ>[",",1,1]
+            YPOS = X + ZZ
+            Y.CALC.VALUE = YTRANS.ARRAY<K,ZZ>
+            GOSUB FMT.VALUE
+            CRT YTAG : " ---> " : Y.CALC.VALUE : " <---- "  : YTRANS.ARRAY<K,ZZ>
+            YMSG.OUT := Y.CALC.VALUE
+        NEXT ZZ
+    NEXT K
+    X = X.SAVE + NO.VM
+    RETURN
+
+INITIALISE:
+
+    YMSG.TYPE = MSG[1,4]
+
+    Y.IN.CONFIG = ""
+    Y.IN.CONFIG<-1>='1,4,1'
+    Y.IN.CONFIG<-1>='2,2,5'
+    Y.IN.CONFIG<-1>='312,1,7'
+    Y.IN.CONFIG<-1>='320,4,8'
+    Y.IN.CONFIG<-1>='117,8,12'
+    Y.IN.CONFIG<-1>='4,14,20'
+    Y.IN.CONFIG<-1>='233,3,34'
+    Y.IN.CONFIG<-1>='3,1,37'
+    Y.IN.CONFIG<-1>='241,4,38'
+    Y.IN.CONFIG<-1>='68,7,42'
+    Y.IN.CONFIG<-1>='6,10,49'
+    Y.IN.CONFIG<-1>='105,14,59'
+    Y.IN.CONFIG<-1>='118,3,73'
+    Y.IN.CONFIG<-1>='323,5,76'
+    Y.IN.CONFIG<-1>='7,40,81'
+    Y.IN.CONFIG<-1>='158,4,121'
+    Y.IN.CONFIG<-1>='157,4,125'
+    Y.IN.CONFIG<-1>='226,3,129'
+    Y.IN.CONFIG<-1>='261,6,132'
+    Y.IN.CONFIG<-1>='319,2,138'
+    Y.IN.CONFIG<-1>='128,7,140'
+    Y.IN.CONFIG<-1>='129,1,147'
+    Y.IN.CONFIG<-1>='132,15,148'
+    Y.IN.CONFIG<-1>='119,2,163'
+    Y.IN.CONFIG<-1>='005,2,165'
+    Y.IN.CONFIG<-1>='120,2,167'
+    Y.IN.CONFIG<-1>='8,13,169'
+    Y.IN.CONFIG<-1>='318,1,182'
+    Y.IN.CONFIG<-1>='265,7,183'
+    Y.IN.CONFIG<-1>='318,1,190'
+    Y.IN.CONFIG<-1>='50,11,191'
+    Y.IN.CONFIG<-1>='318,1,202'
+    Y.IN.CONFIG<-1>='51,11,203'
+    Y.IN.CONFIG<-1>='318,1,214'
+    Y.IN.CONFIG<-1>='8,13,215'
+    Y.IN.CONFIG<-1>='318,1,228'
+    Y.IN.CONFIG<-1>='265,7,229'
+    Y.IN.CONFIG<-1>='318,1,236'
+    Y.IN.CONFIG<-1>='50,11,237'
+    Y.IN.CONFIG<-1>='318,1,248'
+    Y.IN.CONFIG<-1>='51,11,249'
+    Y.IN.CONFIG<-1>='318,1,260'
+    Y.IN.CONFIG<-1>='233,3,261'
+
+
+    Y.OUT.CONFIG = ""
+    Y.OUT.CONFIG<-1>='1,CODMSG,4,1,A'
+    Y.OUT.CONFIG<-1>='2,VERMSG,2,5,N'
+    Y.OUT.CONFIG<-1>='312,APLICPDD,1,7,A'
+    Y.OUT.CONFIG<-1>='320,IDLOG,4,8,N'
+    Y.OUT.CONFIG<-1>='117,NRLOG,8,12,N'
+    Y.OUT.CONFIG<-1>='12,CODRESP,1,20,A'
+    Y.OUT.CONFIG<-1>='13,NRIDRESP,14,21,A'
+    Y.OUT.CONFIG<-1>='16,CODRESPAD,3,35,N'
+    Y.OUT.CONFIG<-1>='132,CONTA - SAN1,15,38,N'
+    Y.OUT.CONFIG<-1>='233,CODMOEDA-SAN1,3,53,N'
+    Y.OUT.CONFIG<-1>='27,SALDODISP-SAN1,13,56,N'
+    Y.OUT.CONFIG<-1>='318,SINAL,1,69,A'
+    Y.OUT.CONFIG<-1>='19,SALDOCONT-SAN1,13,70,N'
+    Y.OUT.CONFIG<-1>='318,SINAL,1,83,A'
+    Y.OUT.CONFIG<-1>='20,DATASALDO-SAN1,8,84,N'
+    Y.OUT.CONFIG<-1>='132,CONTA - SAN2,15,92,N'
+    Y.OUT.CONFIG<-1>='233,CODMOEDA-SAN2,3,107,N'
+    Y.OUT.CONFIG<-1>='27,SALDODISP-SAN2,13,110,N'
+    Y.OUT.CONFIG<-1>='318,SINAL,1,123,A'
+    Y.OUT.CONFIG<-1>='19,SALDOCONT-SAN2,13,124,N'
+    Y.OUT.CONFIG<-1>='318,SINAL,1,137,A'
+    Y.OUT.CONFIG<-1>='20,DATASALDO-SAN2,8,138,N'
+
+    Y.OUT.CONFIG.MINI = ""
+    Y.OUT.CONFIG.MINI<-1>='1,CODMSG,4,1,A'
+    Y.OUT.CONFIG.MINI<-1>='2,VERMSG,2,5,N'
+    Y.OUT.CONFIG.MINI<-1>='312,APLICPDD,1,7,A'
+    Y.OUT.CONFIG.MINI<-1>='320,IDLOG,4,8,N'
+    Y.OUT.CONFIG.MINI<-1>='117,NRLOG,8,12,N'
+    Y.OUT.CONFIG.MINI<-1>='12,CODRESP,1,20,A'
+    Y.OUT.CONFIG.MINI<-1>='13,NRIDRESP,14,21,A'
+    Y.OUT.CONFIG.MINI<-1>='132,CONTA,15,38,N'
+    Y.OUT.CONFIG.MINI<-1>='233,CODMOEDA,3,53,N'
+    Y.OUT.CONFIG.MINI<-1>='27,SALDODISP,13,56,N'
+    Y.OUT.CONFIG.MINI<-1>='318,SINAL,1,69,A'
+    Y.OUT.CONFIG.MINI<-1>='19,SALDOCONT,13,70,N'
+    Y.OUT.CONFIG.MINI<-1>='318,SINAL,1,83,A'
+    Y.OUT.CONFIG.MINI<-1>='20,DATASALDO,8,84,N'
+    Y.OUT.CONFIG.MINI<-1>='21,NRMOV,2,92,N'
+    Y.OUT.CONFIG.MINI<-1>='22,SINAL,3,133,A'
+    Y.OUT.CONFIG.MINI<-1>='23,DESCMOV,15,97,A'
+    Y.OUT.CONFIG.MINI<-1>='24,DATAMOV,8,112,N'
+    Y.OUT.CONFIG.MINI<-1>='25,VALORMOV,13,120,N'
+    Y.OUT.CONFIG.MINI<-1>='318,SINAL,1,83,A'
+    Y.OUT.CONFIG.MINI<-1>='233,CODMOEDA,3,134,N'
+
+    RETURN
+
+
+FMT.VALUE:
+
+    TEMP.VALUES =  Y.CALC.VALUE
+    Y.CALC.VALUE = ""
+    IN.VAL =  TEMP.VALUES
+    Y2 = ""
+    OUT.VAL = ""
+    YTYPE = Y.OUT.CONFIG<YPOS>[",",5,1]
+    YLEN = Y.OUT.CONFIG<YPOS>[",",3,1]
+    BEGIN CASE
+    CASE YTYPE = "N" AND YLEN
+        YLEN *= 1
+        YFMT = "R%" : YLEN
+    CASE YTYPE = "A" AND YLEN
+        YLEN *= 1
+        YFMT = YLEN : 'R'
+    CASE OTHERWISE
+        OUT.VAL = IN.VAL
+    END CASE
+
+    IF YFMT THEN
+        OUT.VAL = IN.VAL
+        OUT.VAL = FMT(IN.VAL,YFMT)
+        OUT.VAL = OUT.VAL[1,YLEN]
+    END
+    Y.CALC.VALUE = OUT.VAL
+
+
+    RETURN
+
+END

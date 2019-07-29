@@ -1,0 +1,160 @@
+********************************************
+*Develop By : Priti Carsane
+*Develop for: Standard Bank Mozambique
+*
+*Summary Description: This authorisation routine is going to alter the status of cards, per batch
+*selects all cards in table CARD.ISSUE with status equal "2-Enviado a Agencia" then saves into history table
+*changes the status to "3-Recebido a Agencia" and writes the date in field "Date Rcv Branch".
+*
+*Development Date: 09/10/2014
+*
+*Modified Date: 12/05/2015
+**********************************************
+
+    SUBROUTINE V.RECEIVE.CARD.BRANCH.P24
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_ENQUIRY.COMMON
+    $INSERT BP I_F.SB.CARD.RECEIVE
+    $INCLUDE I_F.CARD.ISSUE
+
+    GOSUB INITIALISE
+
+    RETURN
+
+
+
+***********
+INITIALISE:
+***********
+
+* Data entered by the User on Version
+    YLOTE = R.NEW(EB.DEV.HLP.NUMERO.LOTE)
+    IF LEN(YLOTE) EQ 12 THEN
+        IF YLOTE[10,3] EQ ID.COMPANY[7,3] THEN
+
+            FN.COMPANY = 'F.COMPANY'
+            FV.COMPANY = ''
+            CALL OPF(FN.COMPANY,FV.COMPANY)
+
+            GOSUB READ.COMPANIES
+            UPDATE = 0
+        END ELSE
+            E = 'Verifique o N. de Lote! Balcao errado'
+            ETEXT = 'Verifique o N. de Lote! Balcao errado'
+            CALL STORE.END.ERROR
+        END
+    END ELSE
+        E = 'Lote errado'
+        ETEXT = 'Lote errado'
+        CALL STORE.END.ERROR
+
+    END
+    RETURN
+
+
+*---------------------*
+*    READ.COMPANIES
+*---------------------*
+READ.COMPANIES:
+    C2O.LIST = '' ; CO.NO = '' ; CO.ERR = ''
+    SEL.CO = 'SSELECT ':FN.COMPANY:' WITH CONSOLIDATION.MARK EQ "N" SAVING  MNEMONIC BY COMPANY.CODE'
+    CALL EB.READLIST(SEL.CO,CO.LIST,'',CO.NO,CO.ERR)
+    LOOP
+        REMOVE YR.MNEM FROM CO.LIST SETTING MORE1
+    WHILE YR.MNEM:MORE1
+        GOSUB LOAD.CARD
+        GOSUB PROCESS.CARDS
+    REPEAT
+
+    PRINT "Recebidos ":UPDATE:" CARTOES"
+    IF UPDATE EQ 0 THEN
+        E = 'Nenhum cartao encontrado com LOTE =':YLOTE:' e STATUS = 2'
+        ETEXT = 'Nenhum cartao encontrado com LOTE =':YLOTE:' e STATUS = 2'
+        CALL STORE.END.ERROR
+
+    END
+
+    RETURN
+
+
+**********
+LOAD.CARD:
+**********
+*
+    YF.CARD.ISSUE = 'F':YR.MNEM:'.CARD.ISSUE'
+    F.CARD.ISSUE = ''
+    CALL OPF(YF.CARD.ISSUE,F.CARD.ISSUE)
+    YR.ISS.ID = '' ; YR.ISS.REC = ''
+
+    FN.CIH = 'F':YR.MNEM:'.CARD.ISSUE$HIS'
+    F.CIH = ''
+    CALL OPF(FN.CIH,F.CIH)
+
+    RETURN
+
+
+**************
+PROCESS.CARDS:
+**************
+    SELECT.CMD = 'SSELECT ':YF.CARD.ISSUE:' BY @ID WITH BATCH.ID EQ ':YLOTE:' AND WITH SB.CARD.STATUS EQ "2"'
+    CARD.LIST = '' ; NO.SELECTED = ''
+    CALL EB.READLIST(SELECT.CMD,CARD.LIST,'',NO.SELECTED,'')
+
+    IF CARD.LIST EQ '' THEN RETURN
+
+    FOR J = 1 TO NO.SELECTED
+        YR.ISS.ID = CARD.LIST<J> ; ER = ''
+        CALL F.READ(YF.CARD.ISSUE,YR.ISS.ID,YR.ISS.REC,F.CARD.ISSUE,ER)
+        IF ER THEN
+            ETEXT = 'ERROR READING CARD ISSUE FILE'
+        END ELSE
+            CURR.NO = YR.ISS.REC<CARD.IS.CURR.NO> + 0
+            IF CURR.NO EQ 0 THEN CURR.NO + = 1
+            NEW.ID = YR.ISS.ID:';':CURR.NO
+            WRITE YR.ISS.REC TO F.CIH,NEW.ID
+            YR.AC.ID = ''
+            YR.AC.ID = YR.ISS.REC<CARD.IS.ACCOUNT>
+
+            IF YR.AC.ID EQ '' THEN
+                YR.AC.ID = YR.ISS.REC<CARD.IS.LOCAL.REF,12>
+            END
+            GOSUB UPDATE.CARD.ISSUE
+* CALL V.SB.SEND.CARD.EMAIL(YR.AC.ID,YLOTE[10,3],"CARTAO DE DEBITO")
+        END
+    NEXT J
+
+    RETURN
+
+
+
+******************
+UPDATE.CARD.ISSUE:
+******************
+
+    YR.ISS.REC<CARD.IS.LOCAL.REF,1> = 3 ;* alteracao de status pela AGENCIA
+    YR.ISS.REC<CARD.IS.LOCAL.REF,42> = TODAY      ;* data de entrega ao balcao pela AGENCIA
+    YR.ISS.REC<CARD.IS.INPUTTER> = OPERATOR
+    YR.ISS.REC<CARD.IS.AUTHORISER> = OPERATOR
+    IF YR.ISS.REC<CARD.IS.CURR.NO> EQ 0 THEN
+        YR.ISS.REC<CARD.IS.CURR.NO> = YR.ISS.REC<CARD.IS.CURR.NO> + 2
+    END ELSE
+        YR.ISS.REC<CARD.IS.CURR.NO> = YR.ISS.REC<CARD.IS.CURR.NO> + 1
+    END
+    WRITE YR.ISS.REC TO F.CARD.ISSUE,YR.ISS.ID ON ERROR RETURN
+
+
+    RETURN
+
+
+
+
+
+*********************************************************************
+*                   This is the Final End Statement                 *
+*********************************************************************
+
+END

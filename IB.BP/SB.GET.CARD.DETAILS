@@ -1,0 +1,94 @@
+    SUBROUTINE SB.GET.CARD.DETAILS
+
+*********************************************
+*Develop By : Priti Carsane
+*Summary Description: This routine calculates get the card number, calculates the expiry date.
+*Development Date: 05/02/2015
+**********************************************
+    $INCLUDE  I_COMMON
+    $INCLUDE  I_EQUATE
+    $INCLUDE  I_F.CARD.ISSUE
+    $INCLUDE  I_F.DATES
+    $INSERT  I_F.SB.PARAMETRO.IB
+    $INSERT BP  I_F.SB.IB.CREAT.NPER
+    $INCLUDE  I_F.CARD.TYPE
+
+
+    GOSUB INIT
+    GOSUB GET.ALL.CARD.DETAIL
+
+INIT:
+    FN.DATES = "F.DATES"
+    FV.DATES = ""
+    CALL OPF(FN.DATES,FV.DATES)
+
+    FN.CARD.TYPE = "F.CARD.TYPE"
+    FV.CARD.TYPE = ""
+    CALL OPF(FN.CARD.TYPE,FV.CARD.TYPE)
+
+*--- Gets Julyan date
+    R.JULYAN = ""
+    READ R.JULYAN FROM FV.DATES,"MZ0010001" ELSE R.JULYAN = ""
+    YJULDATE = R.JULYAN<EB.DAT.JULIAN.DATE>
+
+    RETURN
+
+GET.ALL.CARD.DETAIL:
+*--- Gets card number and expiry date
+    GOSUB CREATE.FULL.CARD.NUMBER
+    GOSUB ISSUE.DATE.VAL
+    R.NEW(EB.SB.84.DATINI) = YJULDATE[3,7]
+    R.NEW(EB.SB.84.NDISPONIVEL) = R.NEW(EB.SB.84.TOTCAR)
+    R.NEW(EB.SB.84.ISSUE.DATE) =  TODAY
+
+    RETURN
+
+
+*-----------------------
+CREATE.FULL.CARD.NUMBER:
+*-----------------------
+    CARD.ID = 'P24'
+*---- Gets card sequence -------*
+    READ R.CARD.TYPE FROM FV.CARD.TYPE,CARD.ID ELSE R.CARD.TYPE = ""
+    YGET.POS1 = R.CARD.TYPE<CARD.TYPE.LOCAL.REF,5>
+    LOCATE R.NEW(EB.SB.84.BRANCH.REQ) IN YGET.POS1<1,1,1> SETTING YPOS THEN
+        YGET.POS2 = R.CARD.TYPE<CARD.TYPE.LOCAL.REF,6>
+        YCARD.SEQ = YGET.POS2<1,1,YPOS> + 1
+        YCARD.SEQ = FMT(YCARD.SEQ,"7'0'R")
+        YCARD.SEQ2 = YGET.POS2<1,1,YPOS> + R.NEW(EB.SB.84.TOTCAR)
+        YCARD.SEQ2 = FMT(YCARD.SEQ2,"7'0'R")
+    END
+
+
+
+*---- writes the new sequence -----*
+
+    R.CARD.TYPE<CARD.TYPE.LOCAL.REF,6,YPOS> = YCARD.SEQ2
+    WRITE R.CARD.TYPE ON FV.CARD.TYPE,CARD.ID
+
+    R.NEW(EB.SB.84.NPNUMCAR) = YCARD.SEQ
+
+    RETURN
+
+
+***************
+ISSUE.DATE.VAL:
+***************
+*---- Calculates expiry date -----*
+    IF ISSUE.DATE='' THEN ISSUE.DATE = TODAY
+    ISSUE.DATE = TODAY
+    YY = ISSUE.DATE[1,4]
+    YY = YY+5
+    MM = ISSUE.DATE[5,2]
+    DD = ISSUE.DATE[7,2]
+    IF MM EQ "02" THEN
+        DD = 28
+    END ELSE
+        DD = 30
+    END
+    YDATE.EXPIRACAO = YY:MM:DD
+    R.NEW(EB.SB.84.DATEXP) = YDATE.EXPIRACAO
+
+    RETURN
+
+END

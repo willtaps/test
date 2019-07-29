@@ -1,0 +1,351 @@
+*-----------------------------------------------------------------------------
+* <Rating>910</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SB.IB.UPDATE.ECSV
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_ENQUIRY.COMMON
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_F.INTERCO.PARAMETER
+    $INCLUDE I_F.SB.HEADER.IB
+    $INCLUDE I_F.ACCT.ACTIVITY
+*
+
+
+*********************************************************************
+*                    Main processing section                        *
+*********************************************************************
+*
+    GOSUB INITIALISE
+*
+    GOSUB PROCESS
+*
+    RETURN
+
+
+
+
+***********
+INITIALISE:
+***********
+*
+    YF.INTERCO.PARAMETER = 'F.INTERCO.PARAMETER'
+    F.INTERCO.PARAMETER = ''
+    CALL OPF(YF.INTERCO.PARAMETER,F.INTERCO.PARAMETER)
+
+    YR.AC.ID = '' ; YR.AC.REC = ''  ; YTOTDEB = 0 ; YTOTCRED = 0 ; DT = ''
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+    FN.BSTM.DAT = "BSTM.DAT"
+    FV.BSTM.DAT = ""
+    CALL OPF(FN.BSTM.DAT,FV.BSTM.DAT)
+
+
+*--- Leitura e actualizacao da tabela de sequencia do ficheiro
+*--- Extraccao de dados para constituicao do HEADER
+
+    R.SEQ = ''
+    FN.SB.HEADER.IB = "F.SB.HEADER.IB"
+    FV.SB.HEADER.IB = ""
+    CALL OPF(FN.SB.HEADER.IB,FV.SB.HEADER.IB)
+
+    READ R.SEQ FROM FV.SB.HEADER.IB,'ECSV' ELSE R.SEQ = ''
+    YIDFICHANT = R.SEQ<IBHDR.IDFICHANT>
+    YIDFICH = R.SEQ<IBHDR.IDFICH>
+
+    YDATAANT = YIDFICHANT[1,8]
+    YDATA = YIDFICH[1,8]
+
+    YSEQANT = YIDFICH[9,3]
+    YSEQANT = FMT(YSEQANT,"3'0'R")
+
+    IF YDATA NE TODAY THEN
+        YSEQACT = "001"
+    END ELSE
+        YSEQACT = YIDFICH[9,3] + 1
+        YSEQACT = FMT(YSEQACT,"3'0'R")
+    END
+
+    YIDFICHANT = R.SEQ<IBHDR.IDFICH>
+    YIDFICH = TODAY:YSEQACT
+
+    R.SEQ<IBHDR.IDFICHANT> = YIDFICHANT
+    R.SEQ<IBHDR.IDFICH> = YIDFICH
+
+    HDF.TIPREG = R.SEQ<IBHDR.TIPREG>
+    HDF.APLIC = R.SEQ<IBHDR.APLIC>
+    HDF.FICH = R.SEQ<IBHDR.FICH>
+    HDF.VERFICH = R.SEQ<IBHDR.VERFICH>
+    HDF.CODBAN = R.SEQ<IBHDR.CODBAN>
+    HDF.CPD = R.SEQ<IBHDR.CPD>
+    HDF.IDFICH = R.SEQ<IBHDR.IDFICH>
+    HDF.IDFICHANT = R.SEQ<IBHDR.IDFICHANT>
+    HDF.CODMOEDA = R.SEQ<IBHDR.CODMOEDA>
+    YTIME = OCONV(TIME(),"MTS")
+    CONVERT ":" TO "" IN YTIME
+    HD.DATAVALOR = "00":YTIME
+
+    WRITE R.SEQ TO FV.SB.HEADER.IB,'ECSV'
+
+    RETURN
+
+
+
+********
+PROCESS:
+********
+
+*--- Inicializacao de variaves ----------*
+
+    YR.ISSUE.ID = ""
+    YR.ISSUE.REC = ""
+    REC.ID = 0
+
+*--- Seleccao de companhias para extraccao de informacao -----*
+
+    INTERCO.REC = ''
+    READ INTERCO.REC FROM F.INTERCO.PARAMETER,'SYSTEM' ELSE INTERCO.REC = ''
+
+    YCOMP.MNE = INTERCO.REC<8>
+    CONVERT VM TO FM IN YCOMP.MNE
+    Y = DCOUNT(YCOMP.MNE,@FM)
+    FOR I = 1 TO Y
+        YMNE = YCOMP.MNE<I>
+
+
+
+*--- Incio do processamento ----------*
+
+        YF.CARD.ISSUE = 'F':YMNE:'.CARD.ISSUE'
+        F.CARD.ISSUE = ''
+        CALL OPF(YF.CARD.ISSUE,F.CARD.ISSUE)
+
+        YR.TODAY = TODAY
+        SELECT.STM = 'SSELECT ':YF.CARD.ISSUE:' WITH @ID LIKE P24... AND WITH CARD.STATUS EQ 90 AND WITH EXPIRY.DATE GT ':TODAY
+        CARD.LIST = '' ; NO.SELECTED = ''
+        CALL EB.READLIST(SELECT.STM,CARD.LIST,'',NO.SELECTED,'')
+
+        IF CARD.LIST = '' THEN CONTINUE
+        FOR J = 1 TO NO.SELECTED
+            YR.ISSUE.ID = CARD.LIST<J> ; ER = ''
+            CALL F.READ(YF.CARD.ISSUE,YR.ISSUE.ID,YR.ISSUE.REC,F.CARD.ISSUE,ER)
+            YACCT.1 = YR.ISSUE.REC<CARD.IS.ACCOUNT,1>
+            YACCT.2 = YR.ISSUE.REC<CARD.IS.LOCAL.REF,51,1>
+            TEMPAC1= YACCT.1[1,3]:"0":YACCT.1[4,10]
+            FINDSTR TEMPAC1 IN DT SETTING AP, VP THEN
+
+            END ELSE
+                IF YACCT.1 THEN
+                    YR.AC.ID = YACCT.1
+                    ACT.ID = YACCT.1:'-':TODAY[1,6]
+                    GOSUB READ.ACCT.ACTIVITY
+                    YDATA = TODAY[7,2]
+                    DAY.NO =ACT.REC<IC.ACT.DAY.NO>
+                    BK= ACT.REC<IC.ACT.BK.DAY.NO>
+                    LOCATE TODAY[7,2] IN ACT.REC<IC.ACT.DAY.NO> SETTING POS THEN
+                        CALL SB.GET.FULL.AC.BAL(YR.AC.ID,YMNE,YACCT.AVAIL.BAL)
+                        GOSUB READ.ACCOUNT.FILE
+                        GOSUB PROCESS.DETAILS
+                    END  ELSE
+                        FINDSTR TODAY[7,2] IN ACT.REC<IC.ACT.BK.DAY.NO> SETTING YPOS THEN
+                            CALL SB.GET.FULL.AC.BAL(YR.AC.ID,YMNE,YACCT.AVAIL.BAL)
+                            GOSUB READ.ACCOUNT.FILE
+                            GOSUB PROCESS.DETAILS
+                        END
+                    END
+                END
+
+                IF YACCT.2 THEN
+                    YR.AC.ID = YACCT.2
+                    ACT.ID = YACCT.1:'-':TODAY[1,6]
+                    GOSUB READ.ACCT.ACTIVITY
+                    LOCATE TODAY[7,2] IN ACT.REC<IC.ACT.DAY.NO> SETTING POS THEN
+                        CALL SB.GET.FULL.AC.BAL(YR.AC.ID,YMNE,YACCT.AVAIL.BAL)
+                        GOSUB READ.ACCOUNT.FILE
+                        GOSUB PROCESS.DETAILS
+                    END ELSE
+                        FINDSTR TODAY[7,2] IN ACT.REC<IC.ACT.BK.DAY.NO> SETTING YPOS THEN
+                            CALL SB.GET.FULL.AC.BAL(YR.AC.ID,YMNE,YACCT.AVAIL.BAL)
+                            GOSUB READ.ACCOUNT.FILE
+                            GOSUB PROCESS.DETAILS
+                        END
+                    END
+                END
+            END
+        NEXT J
+
+    NEXT I
+
+
+*--- Constitucao da string do registo tipo HEADER
+
+    HD = HDF.TIPREG:HDF.APLIC:HDF.FICH:HDF.VERFICH:HDF.CODBAN:HDF.CPD
+    HD := HDF.IDFICH:HDF.IDFICHANT:HD.DATAVALOR:HDF.CODMOEDA
+
+
+
+*--- Preparacao e constituicao do registo do tipo TRAILER e respectiva string
+
+    TR.TIPREG = "9"
+    YTCRED = CONVERT(".","",YTOTCRED)
+    TR.TOTCRED = YTCRED
+    TR.TOTCRED = FMT(TR.TOTCRED,"16'0'R")
+    YTDEB = CONVERT(".","",YTOTDEB)
+    TR.TOTDEB = YTDEB
+    TR.TOTDEB = FMT(TR.TOTDEB,"16'0'R")
+    TR = TR.TIPREG:REC.ID:TR.TOTDEB:TR.TOTCRED
+
+
+*--- Constituicao da string final do ficheiro
+
+
+    DT = HD:@FM:DT:@FM:TR
+
+
+*--- Escrita do ficheiro final ECSV
+
+    WRITE DT TO FV.BSTM.DAT, "ECSV_":YIDFICH
+
+
+    RETURN
+
+****************
+PROCESS.DETAILS:
+****************
+
+
+*--- Verificacao se conta com restricoes e colcta de informacao de saldos ---*
+
+    ACCT.NO = YR.AC.ID
+
+    IF YR.AC.REC<AC.POSTING.RESTRICT> "" THEN
+        YACCT.LEDG.BAL = YR.AC.REC<AC.ONLINE.ACTUAL.BAL> * 0
+    END ELSE
+        IF YR.AC.REC<AC.CURRENCY> EQ LCCY THEN
+            YACCT.AVAIL.BAL = FMT(YACCT.AVAIL.BAL,"R2#10#") * 100
+            YACCT.LEDG.BAL = FMT(YR.AC.REC<AC.ONLINE.ACTUAL.BAL>,"R2#10") * 100
+        END
+    END
+
+    IF YACCT.AVAIL.BAL GE 0 THEN
+        YBAL.AVAIL.SIGN = 'C'
+        YTOTCRED = YTOTCRED+YACCT.AVAIL.BAL
+    END ELSE
+        YBAL.AVAIL.SIGN = 'D'
+        YACCT.AVAIL.BAL = YACCT.AVAIL.BAL[2,99]
+        YTOTDEB = YTOTDEB+YACCT.AVAIL.BAL
+    END
+
+    IF YACCT.LEDG.BAL GE 0 THEN
+        YBAL.LEDG.SIGN = 'C'
+    END ELSE
+        YACCT.LEDG.BAL = YACCT.LEDG.BAL[2,99]
+        YBAL.LEDG.SIGN = 'D'
+    END
+
+***  Conversao do valor se a moeda nao for local  ***
+    IF YR.AC.REC<AC.CURRENCY> NE LCCY THEN
+        BUY.AMT = YACCT.LEDG.BAL
+        GOSUB CONVERT.AMT.LCY
+        YLEDG.CONV = SELL.AMT * 100
+        YLEDG = CONVERT(".","",YLEDG.CONV)
+        BUY.AMT = YACCT.AVAIL.BAL
+        GOSUB CONVERT.AMT.LCY
+        YAVAIL.CONV = SELL.AMT * 100
+        YAVAIL = CONVERT(".","",YAVAIL.CONV)
+    END ELSE
+        YLEDG = CONVERT(".","",YACCT.LEDG.BAL)
+        YAVAIL = CONVERT(".","",YACCT.AVAIL.BAL)
+    END
+
+    YLEDG = FMT(YLEDG,"13'0'R")
+    YAVAIL  = FMT(YAVAIL,"13'0'R")
+
+*--- Carregamento das variaves do registo de DETALHE ------*
+
+    DT.TIPREG = "1"
+    DT.CONTA = "0":ACCT.NO[1,3]:"0":ACCT.NO[4,10]
+    DT.AVL.SINAL = YBAL.AVAIL.SIGN
+    DT.SVESP = YAVAIL
+    DT.DTSCONT = TODAY
+    DT.LDG.SINAL = YBAL.LEDG.SIGN
+    DT.SCONT = YLEDG
+
+
+*--- Criacao da string dos registo tipo DETALHE ----------*
+
+    DT<-1> = DT.TIPREG:DT.CONTA:DT.AVL.SINAL:DT.SVESP:DT.DTSCONT:DT.LDG.SINAL:DT.SCONT
+
+    REC.ID +=1
+    REC.ID = FMT(REC.ID,"8'0'R")
+
+    RETURN
+
+
+
+
+
+*******************
+CONVERT.AMT.LCY:
+*******************
+
+    CCY.MARKETS = 1
+    BUY.CCY = YR.AC.REC<AC.CURRENCY>
+    SELL.CCY = LCCY
+    SELL.AMT = ""
+    BASE.CCY = ""
+    TREASURY.RATE = ""
+    CUST.RATE = ""
+    CUST.SPREAD =""
+    SPREAD.PCT = ""
+    LOCAL.CCY.BUY = ""
+    LOCAL.CCY.SELL = ""
+    RETURN.CODE = ""
+
+    CALL CUSTRATE(CCY.MARKETS, BUY.CCY,BUY.AMT,SELL.CCY,SELL.AMT,BASE.CCY,TREASURY.RATE,CUST.RATE,CUST.SPREAD,SPREAD.PCT,LOCAL.CCY.BUY,LOCAL.CCY.SELL,RETURN.CODE)
+    RETURN
+******************
+READ.ACCOUNT.FILE:
+******************
+*
+
+    ER = ''
+
+    FN.ACCOUNT = "F":YMNE:".ACCOUNT"
+    FV.ACCOUNT = ""
+    CALL OPF(FN.ACCOUNT,FV.ACCOUNT)
+
+    CALL F.READ(FN.ACCOUNT,YR.AC.ID,YR.AC.REC,FV.ACCOUNT,ER)
+*
+    RETURN
+
+
+
+
+
+READ.ACCT.ACTIVITY:
+
+    ER = ''
+
+    FN.ACCT.ACTIVITY = "F":YMNE:".ACCT.ACTIVITY"
+    FV.ACCT.ACTIVITY = ""
+    CALL OPF(FN.ACCT.ACTIVITY,FV.ACCT.ACTIVITY)
+
+    CALL F.READ(FN.ACCT.ACTIVITY,ACT.ID,ACT.REC,FV.ACCT.ACTIVITY,ER)
+*
+
+    RETURN
+
+
+*********************************************************************
+*               This is the Final End Statement                     *
+*********************************************************************
+
+
+END

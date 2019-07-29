@@ -1,0 +1,57 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.TAG.128.1.SB
+*
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_ENQUIRY.COMMON
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.FUNDS.TRANSFER
+    $INCLUDE I_F.INTERCO.PARAMETER
+    $INSERT IB.BP I_IB.TAG.SB.COMMON
+    $INSERT IB.BP I_F.IB.ATM.BALANCE.SB
+    $INCLUDE IB.BP I_IB.ATM.MSG.COMMON
+    $INCLUDE I_F.CARD.ISSUE
+
+*
+    YCARD = M.CARD.ISSUE.ID
+    IF YCARD THEN
+        Y.DATA = 'CARTAO: XXXXXXXX':YCARD[13,7]:'X'
+        RETURN
+    END
+
+    TAG.132.VALUE = ""
+    LOCATE "132" IN MSG.DATA<MSG.TAG.ID,1> SETTING POS THEN
+        TAG.132.VALUE = MSG.DATA<MSG.TAG.VALUE,POS>
+    END
+    YACC = TAG.132.VALUE[2,3]:TAG.132.VALUE[6,10]
+
+    CALL GET.ACCT.BRANCH(YACC,MNEM,YCOMP)
+
+    LOCATE MNEM IN R.INTERCO.PARAMETER<ST.ICP.FIN.MNEMONIC,1> SETTING POS THEN
+        FN.CARD.ISSUE = "F":MNEM:".CARD.ISSUE" : FM : "NO.FATAL.ERROR"
+        F.CARD.ISSUE = ""
+        CALL OPF(FN.CARD.ISSUE,F.CARD.ISSUE)
+
+
+        TAG.128.VALUE = ""
+        LOCATE "128" IN MSG.DATA<MSG.TAG.ID,1> SETTING POS THEN
+            TAG.128.VALUE = MSG.DATA<MSG.TAG.VALUE,POS>
+        END
+*
+        CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+        CARTAO.ID = ''                  ; YCARD =''
+        SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH CARD.TYPE.NO LIKE ...':TAG.128.VALUE:'...'
+        CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+
+
+        YCARD= CARD.LIST
+
+        Y.DATA = 'CARTAO: XXXXXXXX':YCARD[13,7]:'X'
+        YR.RETURN = Y.DATA
+    END
+*
+    RETURN
+
+END

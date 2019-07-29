@@ -1,0 +1,53 @@
+*-----------------------------------------------------------------------------
+* <Rating>-34</Rating>
+*-----------------------------------------------------------------------------
+*
+!** Simple SUBROUTINE template
+* @author willard.matsaudza@gmail.com
+* @stereotype recordcheck
+* @uses E
+* @uses AF
+*!
+*-----------------------------------------------------------------------------
+
+    SUBROUTINE IB.MESSAGE.TAG.SB.RECORD
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+
+    GOSUB CHECK.RECORD
+    IF E = '' THEN
+        GOSUB SET.ENRICHMENTS
+        GOSUB POPULATE.COMMONS
+    END
+
+    RETURN
+
+*----------------
+POPULATE.COMMONS:
+*----------------
+
+    RETURN
+
+*---------------
+SET.ENRICHMENTS:
+*---------------
+
+    CALL EB.SET.FIELD.ENRICHMENT(FIELD.NUMBER, FIELD.ENRICHMENT)
+    RETURN
+
+*------------
+CHECK.RECORD:
+*------------
+
+* Input not allowed for matured contracts!
+    IF V$FUNCTION MATCHES 'I' : VM : 'R' THEN
+* TODO add specific checks for blocking functions if required,
+*         IF NOT(R.NEW(MY.RECORD.STATUS) EQ 'INAU') AND R.NEW(MY.CONTRACT.STATUS) = 'LIQ' THEN
+*            E ='SAMPLE.ERROR.CODE'
+*         END
+    END
+
+    RETURN
+
+END

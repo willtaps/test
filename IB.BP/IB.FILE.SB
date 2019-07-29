@@ -1,0 +1,7 @@
+    PROGRAM IB.FILE.SB
+
+    CALL IB.CLEARING.SB
+
+    STOP
+
+END

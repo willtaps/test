@@ -1,0 +1,8 @@
+* File Layout for SB.DORMAN.ACCOUNT Created 11 SEP 14 at 05:48PM by ea911193
+*      PREFIX[EB.DA.]   
+EQU EB.DA.ACCOUNT.HIST.NO TO 1,         EB.DA.CHANGE.DATE TO 2, 
+           EB.DA.OVERRIDE TO 3,       EB.DA.RECORD.STATUS TO 4, 
+            EB.DA.CURR.NO TO 5,            EB.DA.INPUTTER TO 6, 
+          EB.DA.DATE.TIME TO 7,          EB.DA.AUTHORISER TO 8, 
+            EB.DA.CO.CODE TO 9,          EB.DA.DEPT.CODE TO 10, 
+      EB.DA.AUDITOR.CODE TO 11,    EB.DA.AUDIT.DATE.TIME TO 12

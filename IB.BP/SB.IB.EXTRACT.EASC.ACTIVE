@@ -1,0 +1,173 @@
+    SUBROUTINE SB.IB.EXTRACT.EASC.ACTIVE
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.CARD.ISSUE
+    $INCLUDE I_F.DATES
+    $INCLUDE I_F.COMPANY
+    $INSERT IB.BP I_F.SB.PARAMETRO.IB
+    $INSERT IB.BP I_F.SB.HEADER.IB
+    $INSERT I_F.SB.IB.CARD.ISSUE
+    $INSERT CARD.BP I_F.SB.CARD.RECEIVE
+
+*--- Abertura de ficheiros e inicializacao de variaveis
+
+    FN.BSTM.DAT = "BSTM.DAT"
+    FV.BSTM.DAT = ""
+    CALL OPF(FN.BSTM.DAT,FV.BSTM.DAT)
+
+    FN.DATES = "F.DATES"
+    FV.DATES = ""
+    CALL OPF(FN.DATES,FV.DATES)
+
+    FN.COMPANY = 'F.COMPANY'
+    FV.COMPANY = ''
+    CALL OPF(FN.COMPANY,FV.COMPANY)
+
+    FN.SB.HEADER.IB = 'F.SB.HEADER.IB'
+    FV.SB.HEADER.IB = ''
+    CALL OPF(FN.SB.HEADER.IB,FV.SB.HEADER.IB)
+
+    FN.SB.PARAMETRO.IB = 'F.SB.PARAMETRO.IB'
+    FV.SB.PARAMETRO.IB = ''
+    CALL OPF(FN.SB.PARAMETRO.IB,FV.SB.PARAMETRO.IB)
+
+    FN.SB.HEADER.IB = "F.SB.HEADER.IB"
+    FV.SB.HEADER.IB = ""
+    CALL OPF(FN.SB.HEADER.IB,FV.SB.HEADER.IB)
+
+    SEQ.REG.EMISS = 0 ; RTH = '' ; RTD = '' ; RTT = '' ; RTP = '' ; REGISTO = ''
+
+
+*--- Seleccao das companhias para extraccao dos cartoes requisitados
+
+
+
+*--- Inico do tratamento da companhia
+
+    FN.CARD.ISSUE = 'F.CARD.ISSUE'
+    FV.CARD.ISSUE = ''
+    CALL OPF(FN.CARD.ISSUE,FV.CARD.ISSUE)
+*--- Seleccao dos registos a extractar da companhia
+    CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+    YPROG1 = PGM.VERSION
+    IF YPROG1 EQ ',DELIV.CUS.P24' THEN
+        SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH CARD.TYPE.NO LIKE ...':R.NEW(GIC.RCW.NUMERO.CARTAO)
+    END ELSE
+        SEL.CARD = 'SELECT ':FN.CARD.ISSUE:' WITH CARD.TYPE.NO EQ ':ID.NEW
+    END
+    CALL EB.READLIST(SEL.CARD,CARD.LIST,'',CARD.NO,CARD.ERR)
+    FOR II = 1 TO CARD.NO
+        CARTAO.ID = CARD.LIST<II>
+
+*---- Leitura do registo a partir da tabela CARD.ISSUE e SET da variaveis
+
+        R.CARTAO = ''
+        READ R.CARTAO FROM FV.CARD.ISSUE,CARTAO.ID ELSE R.CARTAO = ''
+
+        SEQ.REG.EMISS +=1
+        SEQ.REG.EMISS = FMT(SEQ.REG.EMISS,"6'0'R")
+
+        RTD.PARAM = R.CARTAO<CARD.IS.LOCAL.REF,62>          ;* Determina o produto associado
+        YPROG = PGM.VERSION
+*--- Preaparacao do TIPO registo 1
+        BEGIN CASE
+        CASE YPROG = ',BLACKLIST.P24'
+            RTD.NSITCAR = '02'
+        CASE YPROG = ',CANCEL.P24'
+            RTD.NSITCAR = '09'
+        CASE YPROG = ',ACTIVE.P24'
+            RTD.NSITCAR = '02'
+        CASE YPROG = ',ACT.BLACKLIST.P24'
+            RTD.NSITCAR = '06'
+        CASE 1
+            RTD.NSITCAR = R.CARTAO<CARD.IS.LOCAL.REF,56>
+        END CASE
+
+
+        RTD.NUMCAR = R.CARTAO<CARD.IS.LOCAL.REF,20>[9,7]
+        IF RTD.NUMCAR = "" THEN
+            RTD.NUMCAR = "7400041"
+        END
+        RTD.COMREP = "0"
+        RTD.VISCA = "  "
+        RTD.VISA_CBR = "         "
+        RTD.DTLIMCBR = "0000000"
+        RTD.LSTUNI = "0"
+        RTD.LSTINT = "0"
+
+*--- Composicao da string do registo do tipo DETALHE do ficheiro --------*
+
+        RTD<-1> = '1':RTD.NUMCAR:RTD.NSITCAR:RTD.COMREP:RTD.VISCA:RTD.VISA_CBR:RTD.DTLIMCBR:RTD.LSTUNI:RTD.LSTINT
+
+    NEXT II
+
+*--- Leitura e actualizacao da tabela de sequencia do ficheiro ECBI
+
+    R.SEQ = ''
+    READ R.SEQ FROM FV.SB.HEADER.IB,"EASC" ELSE R.SEQ = ''
+    YIDFICHANT = R.SEQ<IBHDR.IDFICHANT>
+    YIDFICH = R.SEQ<IBHDR.IDFICH>
+
+    YDATAANT = YIDFICHANT[1,8]
+    YDATA = YIDFICH[1,8]
+
+    YSEQANT = YIDFICH[9,3]
+    YSEQANT = FMT(YSEQANT,"3'0'R")
+
+    IF YDATA NE TODAY THEN
+        YSEQACT = "001"
+    END ELSE
+        YSEQACT = YIDFICH[9,3] + 1
+        YSEQACT = FMT(YSEQACT,"3'0'R")
+    END
+
+    YIDFICHANT = R.SEQ<IBHDR.IDFICH>
+    YIDFICH = TODAY:YSEQACT
+
+    R.SEQ<IBHDR.IDFICHANT> = YIDFICHANT
+    R.SEQ<IBHDR.IDFICH> = YIDFICH
+
+    WRITE R.SEQ TO FV.SB.HEADER.IB,"EASC"
+
+
+*--- Constituicao registo do tipo HEADER do ficheiro ---------*
+
+    RTH.TIPREG = "0"
+    RTH.APLIC = "M"
+    RTH.FICH = "EASC"
+    RTH.VERFICH ="03"
+    RTH.CODBAN = "0003"
+    RTH.CPD = "1"
+    RTH.IDFICH = YIDFICH
+    RTH.IDFICHANT = YIDFICHANT
+    RTH.DATAVALOR = "00000000"
+    RTH.CODMOEDA =  "943"
+
+*--- Composicao da string do registo tipo HEADER do ficheiro
+
+    RTH = RTH.TIPREG:RTH.APLIC:RTH.FICH:RTH.VERFICH:RTH.CODBAN:RTH.CPD
+    RTH := RTH.IDFICH:RTH.IDFICHANT:RTH.DATAVALOR:RTH.CODMOEDA
+
+
+*--- Constituicao do registo tipo TRAILER do ficheiro
+
+    RTT.TIPREG = "9"
+    SEQ.REG.EMISS = SEQ.REG.EMISS
+    SEQ.REG.EMISS = FMT(SEQ.REG.EMISS,"8'0'R")
+    RTT.TOTREG = SEQ.REG.EMISS
+    RTT.TOTDEB = "0000000000000000"
+    RTT.TOTCRED = "0000000000000000"
+
+*--- Composicao da string do resgisto tipo TRAILER do ficheiro
+
+    RTT = RTT.TIPREG:RTT.TOTREG:RTT.TOTDEB:RTT.TOTCRED
+
+
+*--- Cmposicao final do ficheiro EASC e escrita
+    REGISTO = RTH:@FM:RTD:@FM:RTT
+
+    WRITE REGISTO TO FV.BSTM.DAT,'EASC':YIDFICH
+
+
+END

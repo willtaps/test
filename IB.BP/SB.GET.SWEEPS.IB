@@ -1,0 +1,161 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE SB.GET.SWEEPS.IB(SWEEP.DATA)
+*
+*************************************************************************
+* Development Date      : August 2013
+* Developed for         : Standard Bank Mozambique
+* Developed By          : Leovigildo Reis - Mozambique
+*************************************************************************
+* Table readed          : COMPANY, AC.ACCOUNT.LINK and EB.IBK.USER
+* External Subroutine   :
+* Summary Description   : Get sweeps for given IBK user
+* Revision/Change       : Version 1.0
+* Revision/Change Note  :
+* Revision/Change Date  :
+* Revision/Change By    :
+*************************************************************************
+*
+*
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_ENQUIRY.COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.COMPANY
+    $INCLUDE I_F.AC.ACCOUNT.LINK
+    $INCLUDE BP I_F.IBK.USER
+
+    GOSUB INIT
+    GOSUB OPEN.FILES
+    GOSUB PROCESS
+
+    RETURN
+
+INIT:
+    FN.COMPANY = 'F.COMPANY'
+    F.COMPANY = ''
+
+    FN.EB.IBK.USER = 'F.EB.IBK.USER'
+    F.EB.IBK.USER = ''
+
+    LOCATE 'USER.ID' IN D.FIELDS<1> SETTING userPOS ELSE NULL
+    userID = D.RANGE.AND.VALUE<userPOS>
+
+    RETURN
+
+OPEN.FILES:
+    CALL OPF(FN.COMPANY, F.COMPANY)
+    CALL OPF(FN.EB.IBK.USER, F.EB.IBK.USER)
+
+    RETURN
+
+PROCESS:
+    CALL F.READ(FN.EB.IBK.USER, userID, userRec, F.EB.IBK.USER, err)
+    userSubAccounts = userRec<EB.IBK17.SUB.ACCOUNT>
+    userSubAccountRights = userRec<EB.IBK17.SUB.AC.RIGHTS>
+
+    count.1 = DCOUNT(userSubAccounts, VM)
+
+    selectAccounts = ''
+
+    YY = 1
+    FOR X = 1 TO count.1
+        userSubAccount.1 = userSubAccounts<1, X>
+        userSubAccountRight.1 = userSubAccountRights<1, X>
+
+        CONVERT SM TO VM IN userSubAccount.1
+        CONVERT SM TO VM IN userSubAccountRight.1
+
+        count.2 = DCOUNT(userSubAccount.1, VM)
+
+        FOR Y = 1 TO count.2
+            userSubAccount = userSubAccount.1<1, Y>
+            userSubAccountRight = userSubAccountRight.1<1, Y>
+
+            IF userSubAccountRight EQ "TR" THEN
+                IF YY > 1 THEN
+                    selectAccounts := 'OR '
+                END
+                selectAccounts := 'WITH ACCOUNT.FROM EQ "':userSubAccount:'" OR WITH ACCOUNT.TO EQ "':userSubAccount:'" '
+                YY += 1
+            END
+
+        NEXT Y
+
+    NEXT X
+
+    selectCMP = 'SSELECT ':FN.COMPANY:' @ID MNEMONIC WITH MNEMONIC NE "S99"'
+    CALL EB.READLIST(selectCMP, cmpList, '', cmpCount, err)
+
+    FOR I = 1 TO cmpCount STEP 2
+        FN.AC.ACCOUNT.LINK = 'F':cmpList<I+1>:'.AC.ACCOUNT.LINK'
+        F.AC.ACCOUNT.LINK = ''
+
+        CALL OPF(FN.AC.ACCOUNT.LINK, F.AC.ACCOUNT.LINK)
+
+        selectSweeps = 'SSELECT ':FN.AC.ACCOUNT.LINK:' ':selectAccounts
+
+        CALL EB.READLIST(selectSweeps, sweepList, '', sweepCount, err)
+
+        LOOP
+            REMOVE sweepID FROM sweepList SETTING pos
+
+        WHILE sweepID:pos
+            CALL F.READ(FN.AC.ACCOUNT.LINK, sweepID, sweepRec, F.AC.ACCOUNT.LINK, err)
+
+            sweepType = sweepRec<AC.LINK.SWEEP.TYPE>
+            sweepFrequency = sweepRec<AC.LINK.FREQUENCY>
+            sweepDescription = sweepRec<AC.LINK.DESCRIPTION>
+
+            sweepFromAccounts = sweepRec<AC.LINK.ACCOUNT.FROM>
+            sweepFromCurrencies = sweepRec<AC.LINK.ACCT.FROM.CCY>
+            sweepFromMinAmounts = sweepRec<AC.LINK.FROM.MIN.AMT>
+
+            count.1 = DCOUNT(sweepFromAccounts, VM)
+
+            sweepFromAccountsDisplay = ''
+
+            FOR Z = 1 TO count.1
+                sweepFromAccount = sweepFromAccounts<1, Z>
+                sweepFromCurrency = sweepFromCurrencies<1, Z>
+                sweepFromMinAmount = sweepFromMinAmounts<1, Z>
+
+                IF Z > 1 THEN
+                    sweepFromAccountsDisplay := '*'
+                END
+
+                sweepFromAccountsDisplay := sweepFromAccount:'|':sweepFromCurrency:'|':sweepFromMinAmount
+            NEXT Z
+
+            sweepToAccounts = sweepRec<AC.LINK.ACCOUNT.TO>
+            sweepToCurrencies = sweepRec<AC.LINK.ACCT.TO.CCY>
+            sweepToMinAmounts = sweepRec<AC.LINK.MINIMUM.AMT>
+            sweepToMaxAmounts = sweepRec<AC.LINK.MAXIMUM.AMT>
+
+            count.1 = DCOUNT(sweepToAccounts, VM)
+
+            sweepToAccountsDisplay = ''
+
+            FOR W = 1 TO count.1
+                sweepToAccount = sweepToAccounts<1, W>
+                sweepToCurrency = sweepToCurrencies<1, W>
+                sweepToMinAmount = sweepToMinAmounts<1, W>
+                sweepToMaxAmount = sweepToMaxAmounts<1, W>
+
+                IF W > 1 THEN
+                    sweepToAccountsDisplay := '*'
+                END
+
+                sweepToAccountsDisplay := sweepToAccount:'|':sweepToCurrency:'|':sweepToMinAmount:'|':sweepToMaxAmount
+            NEXT W
+
+            company = cmpList<I>
+
+            SWEEP.DATA<-1> = sweepID:'#':sweepType:'#':sweepFrequency:'#':sweepDescription:'#':sweepFromAccountsDisplay:'#':sweepToAccountsDisplay:'#':company
+
+        REPEAT
+
+    NEXT I
+
+    RETURN 

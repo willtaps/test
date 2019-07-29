@@ -1,0 +1,130 @@
+    SUBROUTINE SB.HEADER.IB
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_ENQUIRY.COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.SB.HEADER.IB
+
+
+*---- Main processing section ----
+
+    GOSUB INITIALISE
+
+    GOSUB PROCESS
+
+    RETURN
+
+*---- Subroutines ----
+
+PROCESS:
+    IF LEN(V$FUNCTION) > 1 THEN RETURN
+*&&*
+* RETURN when pgm used to get parameters only
+*--------------------------------------------------
+    CALL MATRIX.UPDATE
+*--------------------------------------------------
+ID.INPUT:
+    CALL RECORDID.INPUT
+    IF MESSAGE = 'RET' THEN RETURN
+* return to PGM.SELECTION
+    IF MESSAGE = 'NEW FUNCTION' THEN
+*--------------------------------------------------
+REM 'CHECK FUNCTION:
+        IF V$FUNCTION = 'V' THEN
+            E = 'NO FUNCTION FOR THIS APPLICATION' ; V$FUNCTION = ''
+ID.ERROR:
+            CALL ERR ; GOTO ID.INPUT
+        END
+*--------------------------------------------------
+        IF V$FUNCTION = 'E' OR V$FUNCTION = 'L' THEN
+            CALL FUNCTION.DISPLAY ; V$FUNCTION = ''
+        END
+        GOTO ID.INPUT
+    END
+*--------------------------------------------------
+REM 'CHECK ID OR CHANGE STANDARD ID:
+*--------------------------------------------------
+    CALL RECORD.READ
+    IF MESSAGE = 'REPEAT' THEN GOTO ID.INPUT
+    CALL MATRIX.ALTER
+*--------------------------------------------------
+REM 'SPECIAL CHECKS OR CHANGE FIELDS AFTER READING RECORD(S):
+*--------------------------------------------------
+
+FIELD.DISPLAY.OR.INPUT:
+    BEGIN CASE
+    CASE SCREEN.MODE = 'MULTI' ; IF FILE.TYPE = 'I' THEN CALL FIELD.MULTI.INPUT ; ELSE CALL FIELD.MULTI.DISPLAY
+    CASE FILE.TYPE = 'I' ; CALL FIELD.INPUT
+    CASE OTHERWISE ; CALL FIELD.DISPLAY
+    END CASE
+*--------------------------------------------------
+HANDLE.MESSAGE:
+    BEGIN CASE
+    CASE MESSAGE = 'REPEAT' ; NULL
+    CASE MESSAGE = 'VAL'
+        MESSAGE = ''
+        IF V$FUNCTION = 'D' OR V$FUNCTION = 'R' THEN
+*--------------------------------------------------
+REM 'HANDLING REVERSAL:
+*--------------------------------------------------
+            NULL
+        END ELSE
+*--------------------------------------------------
+REM 'HANDLING 'VAL'-CHECKS:
+*--------------------------------------------------
+REM 'HANDLE AUTOM. CALCULATED FIELDS (BEGINNING WITH OVERRIDE):
+*--------------------------------------------------
+REM 'HANDLING UPDATE SPECIAL FILES:
+*--------------------------------------------------
+        END
+        CALL UNAUTH.RECORD.WRITE
+        IF MESSAGE = 'ERROR' THEN GOTO FIELD.DISPLAY.OR.INPUT
+        IF MESSAGE = 'AUT' THEN GOTO HANDLE.MESSAGE
+    CASE MESSAGE = 'AUT'
+*--------------------------------------------------
+REM 'DEFINE FINAL CHECKS BEFORE STORING AUTHORISED LIFE FILE RECORD:
+*--------------------------------------------------
+        IF R.NEW(V-8)[1,1] = 'R' THEN
+            NULL
+* reversal normally only after special checks
+* e.g. you can't reverse CUSTOMER record before ACCOUNT record
+        END
+        CALL AUTH.RECORD.WRITE
+        IF MESSAGE = 'ERROR' THEN GOTO FIELD.DISPLAY.OR.INPUT
+    CASE OTHERWISE
+*--------------------------------------------------
+REM 'DEFINE SPECIAL FIELD CHECKS:
+*--------------------------------------------------
+        E = ''
+        BEGIN CASE
+        CASE AF = BSTM.SP.CRF.NAMES
+            IF AS > 1 THEN
+                CALL DBR('RE.STAT.REPORT.HEAD':FM:RE.SRH.SPLIT,R.NEW(BSTM.SP.CRF.NAMES)<1,AV,1>,YR.FIRST.SPLIT)
+                CALL DBR('RE.STAT.REPORT.HEAD':FM:RE.SRH.SPLIT,COMI,YR.THIS.SPLIT)
+                IF YR.THIS.SPLIT <> YR.FIRST.SPLIT THEN
+                    E = 'LEDGERS MUST ALL HAVE SAME SPLIT (HEAD, FIELD ':RE.SRH.SPLIT:')'
+                END
+            END
+        END CASE
+
+        IF E THEN
+            CALL ERR
+            T.SEQU = 'IFLD'
+            GOTO FIELD.DISPLAY.OR.INPUT
+        END
+        IF T.SEQU <> '' THEN T.SEQU<-1> = A+1
+        GOTO FIELD.DISPLAY.OR.INPUT
+*--------------------------------------------------
+    END CASE
+    GOTO ID.INPUT
+    RETURN
+
+INITIALISE:
+
+    $INSERT I_SB.HEADER.IB.FIELDS
+
+    RETURN
+
+
+END

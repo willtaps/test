@@ -1,0 +1,174 @@
+    SUBROUTINE SB.CHECK.TARGET
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.SB.IB.CARD.ISSUE
+    $INCLUDE I_F.ACCOUNT
+    $INCLUDE I_F.CUSTOMER
+    $INSERT I_F.SB.PARAMETRO.IB
+    $INSERT BSTM.BP I_F.SB.PRODUCT.CUST
+    $INSERT BSTM.BP I_F.BSTM.CHEQUE.REQUEST
+
+    F.ACCOUNT='' ; CALL OPF('F.ACCOUNT',F.ACCOUNT)
+
+*DEBUG
+    FN.CUSTOMER = 'FBNK.CUSTOMER'
+    FV.CUSTOMER = ''
+    CALL OPF(FN.CUSTOMER,FV.CUSTOMER)
+
+    FN.SB.PRODUCT.CUST = 'F.EB.SB.PRODUCT.CUST'
+    FV.SB.PRODUCT.CUST = ''
+    CALL OPF(FN.SB.PRODUCT.CUST,FV.SB.PRODUCT.CUST)
+
+
+
+    IF APPLICATION EQ "BSTM.CHEQUE.REQUEST" THEN
+*DEBUG
+        IF R.NEW(BSTM.CHQR.ACCT.NUMBER)#'' THEN
+            ACCOUNT.ID=R.NEW(BSTM.CHQR.ACCT.NUMBER)
+        END ELSE
+            ACCOUNT.ID=COMI
+        END
+
+        R.ACCT='' ; CALL F.READ('F.ACCOUNT',ACCOUNT.ID,R.ACCT,F.ACCOUNT,ER)
+        YCCY = R.ACCT<AC.CURRENCY>
+        YCATEG = R.ACCT<AC.CATEGORY>
+
+
+        IF YCCY NE 'MZN' AND YCCY NE 'USD' AND YCCY NE 'ZAR' THEN
+            ETEXT = 'MOEDA DA CONTA INVALIDA'
+            RETURN
+        END
+
+* R.ACCT = '' ; R.ACCT.ER = ''
+* CALL F.READ('F.ACCOUNT',COMI,R.ACCT,F.ACCOUNT,R.ACCT.ER)
+        IF R.ACCT<AC.LOCAL.REF,80> EQ 'S' THEN
+            ETEXT = 'CONTA INIBIDA DO USO DE CHEQUES'
+            CALL STORE.END.ERROR
+            CALL REBUILD.SCREEN
+        END
+
+        IF NOT(ETEXT) THEN
+            R.CUS = '' ; R.CUS.ER = ''
+            CALL F.READ('F.CUSTOMER',R.ACCT<1>,R.CUS,F.CUSTOMER,R.CUS.ER)
+            IF R.CUS<EB.CUS.LOCAL.REF,106> EQ "S" THEN
+                ETEXT = 'CLIENTE INIBIDO DO USO DE CHEQUES'
+                CALL STORE.END.ERROR
+            END
+        END
+
+
+        IF ER='' THEN
+            YCUST = ''
+            YCUST = R.ACCOUNT<AC.CUSTOMER>
+
+            IF YCUST#'' THEN
+*        *DEBUG
+                R.CLI = '' ;  ER=''
+                CALL F.READ(FN.CUSTOMER,YCUST,R.CLI,FV.CUSTOMER,ER)
+                YTARGET = R.CLI<EB.CUS.TARGET>
+
+
+                CALL F.READ(FN.SB.PRODUCT.CUST,YTARGET,R.SB.CUST,FV.SB.PRODUCT.CUST,ER)
+
+                R.NEW(BSTM.CHQR.CHQ.TYPE) = R.SB.CUST <EB.PROD.CHQ.DEF.PACKAGE>
+                YCHQ.TYPE = R.SB.CUST <EB.PROD.CHQ.DEF.PACKAGE>
+                IF YCHQ.TYPE = 'BG' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE01"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'AZ009'
+                END
+                IF YCHQ.TYPE = 'BN' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE02"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'AZ039'
+                END
+                IF YCHQ.TYPE = 'BS' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "STF39"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'AZ039'
+                END
+                IF YCHQ.TYPE = 'BD' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE02"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'DR039'
+                END
+
+*--- Modificacao para incluir cheques Gold,Platinum e Silver 9 e 99 cheques
+*--- 20140211
+                IF YCHQ.TYPE = 'BP' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE02"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'PL039'
+                END
+                IF YCHQ.TYPE = 'BC' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE02"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'SL039'
+                END
+*---
+
+                IF YCHQ.TYPE = 'BA' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE03"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'AZ099'
+                END
+
+*--- Modificacao para incluir cheques Gold,Platinum e Silver 9 e 99 cheques
+*--- 20140211
+                IF YCHQ.TYPE = 'AD' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE01"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'DR009'
+                END
+
+                IF YCHQ.TYPE = 'CD' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE03"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'DR099'
+                END
+
+                IF YCHQ.TYPE = 'AP' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE01"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'PL009'
+                END
+
+                IF YCHQ.TYPE = 'CP' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE03"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'PL099'
+                END
+
+                IF YCHQ.TYPE = 'AC' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE01"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'SL009'
+                END
+
+                IF YCHQ.TYPE = 'CC' THEN
+                    R.NEW(BSTM.CHQR.CHARGE.CODE) = "DEF100CHE03"
+                    R.NEW(BSTM.CHQR.PRT.CHQ.TYPE) = 'SL099'
+                END
+
+
+
+            END
+        END
+    END
+
+
+    IF APPLICATION EQ "SB.IB.CARD.ISSUE" THEN
+        ACCOUNT.ID=R.NEW(IBCI.CONTA1)
+
+        R.ACCOUNT='' ; CALL F.READ('F.ACCOUNT',ACCOUNT.ID,R.ACCOUNT,F.ACCOUNT,ER)
+
+        IF ER='' THEN
+            YCUST = ''
+            YCUST = R.ACCOUNT<AC.CUSTOMER>
+
+            IF YCUST#'' THEN
+*        *DEBUG
+                R.CLI = '' ;  ER=''
+                CALL F.READ(FN.CUSTOMER,YCUST,R.CLI,FV.CUSTOMER,ER)
+                YTARGET = R.CLI<EB.CUS.TARGET>
+
+
+                CALL F.READ(FN.SB.PRODUCT.CUST,YTARGET,R.SB.CUST,FV.SB.PRODUCT.CUST,ER)
+
+                R.NEW(IBCI.PARAMETER) = R.SB.CUST <EB.PROD.CARD.TYPE>
+
+            END
+        END
+    END
+    RETURN
+

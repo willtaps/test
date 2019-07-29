@@ -1,0 +1,14 @@
+    PROGRAM IB.LIST.IB.BP
+
+    CMD = "SSELECT IB.BP UNLIKE $..."
+    EXEC CMD
+    LOOP
+        READNEXT YID ELSE YID = ""
+    WHILE YID DO
+        CRT YID
+        IF YID[1,2] <> "I_" THEN
+            CRT "$" : YID
+        END
+    REPEAT
+    STOP
+END

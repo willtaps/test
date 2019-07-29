@@ -1,0 +1,71 @@
+*********************************************
+*Develop By : Priti Carsane
+*Developed for: Standard Bank Mozambique
+*
+*Summary Description: This routine
+*
+*Development Date: 05/02/2015
+**********************************************
+
+    SUBROUTINE SB.IB.GET.DETAILS
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INSERT I_F.SB.IB.CARD.ISSUE
+    $INSERT I_F.SB.IB.CREAT.NPER
+    $INSERT BP I_F.SB.INSTANT.CARD
+    $INSERT BP I_F.SB.IB.CREAT.NPER
+
+    GOSUB INIT
+    GOSUB CHECK.INSTANT.CARD
+
+    CALL REBUILD.SCREEN
+
+INIT:
+    FN.SB.INSTANT.CARD = 'F.EB.SB.INSTANT.CARD'
+    FV.SB.INSTANT.CARD = ''
+    CALL OPF(FN.SB.INSTANT.CARD,FV.SB.INSTANT.CARD)
+
+    FN.SB.IB.CREAT.NPER = 'F.EB.SB.IB.CREAT.NPER'
+    FV.SB.IB.CREAT.NPER = ''
+    CALL OPF(FN.SB.IB.CREAT.NPER,FV.SB.IB.CREAT.NPER)
+    RETURN
+
+
+CHECK.INSTANT.CARD:
+    CARD.LIST = '' ; CARD.NO = '' ; CARD.ERR = ''
+    SEL.CMD = 'SELECT ':FN.SB.INSTANT.CARD:' WITH CARD.ID EQ ':R.NEW(IBCI.NUMCAR):' AND BRANCH EQ ':ID.COMPANY
+    CALL EB.READLIST(SEL.CMD,CARD.LIST,'',CARD.NO,CARD.ERR)
+
+    IF CARD.NO GT 0 THEN
+
+        FOR II = 1 TO CARD.NO
+            CARD.ID = CARD.LIST<II>
+
+            R.CARD = ''
+            READ R.CARD FROM FV.SB.INSTANT.CARD,CARD.ID ELSE R.CARD = ''
+            R.CARD<EB.SB.STATUS> = "USED"
+            NPER.ID = R.CARD<EB.SB.SB.IB.CREAT.NPER>
+            R.NEW(IBCI.DATREQ) = R.CARD<EB.SB.ISSUE.DATE>
+            R.NEW(IBCI.DATEXP) = R.CARD<EB.SB.DATEXP>
+            YO = R.CARD<EB.SB.ISSUE.DATE>
+            YOO = R.CARD<EB.SB.DATEXP>
+            WRITE R.CARD TO FV.SB.INSTANT.CARD,CARD.ID
+            R.NPER = ''
+            CALL REBUILD.SCREEN
+            READ R.NPER FROM FV.SB.IB.CREAT.NPER,NPER.ID ELSE R.NPER = ''
+
+            YNUM.DISP = R.NPER<EB.SB.84.NDISPONIVEL>
+            YNUM.DISP = YNUM.DISP - 1
+            R.NPER<EB.SB.84.NDISPONIVEL> = YNUM.DISP
+            WRITE R.NPER TO FV.SB.IB.CREAT.NPER,NPER.ID
+
+        NEXT II
+
+    END ELSE
+        E = 'PLEASE DOUBLE CHECK THE CARD NUMBER!'
+    END
+
+    RETURN
+
+END

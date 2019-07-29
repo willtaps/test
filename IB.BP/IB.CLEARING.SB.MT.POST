@@ -1,0 +1,95 @@
+    SUBROUTINE IB.CLEARING.SB.MT.POST
+    $INSERT ../T24_BP I_COMMON
+    $INSERT ../T24_BP I_EQUATE
+    $INSERT IB.BP I_F.IB.CLEARING.SB.MT.LOG
+    GOSUB INIT
+    GOSUB PROCESS
+    RETURN
+****************
+INIT:
+****************
+!!Initialisation done here
+    FN.IB.CLEARING.SB.MT.LOG = 'F.IB.CLEARING.SB.MT.LOG'
+    F.IB.CLEARING.SB.MT.LOG = ''
+    CALL OPF(FN.IB.CLEARING.SB.MT.LOG,F.IB.CLEARING.SB.MT.LOG)
+    FN.IN.ARC = "IB.CLEARING.ARC"
+    F.IN.ARC = ""
+    OPEN "", FN.IN.ARC TO F.IN.ARC ELSE
+        NULL
+    END
+    ARC.PATH =""
+    CALL UNIX.FILE.PATH(ARC.PATH, FN.IN.ARC)
+    RETURN
+****************
+PROCESS:
+****************
+!!selects the each line val from work file
+    EXECUTE 'CLEAR.FILE F.IB.CLEARING.SB.MT.LOG.ARC'  CAPTURING Y.LOG.OUT
+    EXECUTE 'COPY FROM F.IB.CLEARING.SB.MT.LOG TO F.IB.CLEARING.SB.MT.LOG.ARC ALL' CAPTURING Y.LOG.OUT
+    CALL OCOMO('LOG COPIED TO F.IB.CLEARING.SB.MT.LOG.ARC ':Y.LOG.OUT)
+
+    SEL.CMD = 'SSELECT ':FN.IB.CLEARING.SB.MT.LOG:''
+    CALL EB.READLIST(SEL.CMD,SEL.LIST,'',NO.OF.RECS,RET.CODE.ERR)
+    LOOP
+        REMOVE Y.FILE.ID FROM SEL.LIST SETTING Y.FL.POS
+    WHILE Y.FILE.ID:Y.FL.POS
+        CALL F.READ(FN.IB.CLEARING.SB.MT.LOG,Y.FILE.ID,R.IB.CLEARING.SB.MT.LOG,F.IB.CLEARING.SB.MT.LOG,ERR.IB.CLEARING.SB.MT.LOG)
+        IF R.IB.CLEARING.SB.MT.LOG THEN
+            GOSUB CHK.PROCESS.WRITE.LOG
+        END
+        CALL F.DELETE(FN.IB.CLEARING.SB.MT.LOG,Y.FILE.ID)
+    REPEAT
+    RETURN
+************************
+CHK.PROCESS.WRITE.LOG:
+************************
+!!Grouping the file with each type for log
+    Y.LOG.MSG = R.IB.CLEARING.SB.MT.LOG<IB.CLEARING.LOG.LOG.MSG>
+    CHANGE VM TO FM IN Y.LOG.MSG
+    Y.ID = FIELD(Y.FILE.ID,'*',1,1)
+    Y.VAL = FIELD(Y.FILE.ID,'*',1,1)
+    IF Y.ID THEN
+        IF Y.PREV.VAL EQ '' THEN
+            Y.PREV.VAL = Y.VAL
+            YR.ARC.FILE = FIELD(Y.FILE.ID,'*',1,1)
+            GOSUB OPEN.WRITE.FILE
+*                   GOSUB MSG.SPLIT.PROCESS
+        END ELSE
+            IF Y.PREV.VAL NE Y.VAL THEN
+                Y.PREV.VAL = Y.VAL
+                YR.ARC.FILE = FIELD(Y.FILE.ID,'*',1,1)
+                GOSUB OPEN.WRITE.FILE
+*                       GOSUB MSG.SPLIT.PROCESS
+            END
+        END
+*                WRITESEQ Y.LOG.FINAL.MSG APPEND TO F.OUTPUT ELSE NULL
+        GOSUB MSG.SPLIT.PROCESS
+    END
+    RETURN
+
+*******************
+MSG.SPLIT.PROCESS:
+*******************
+!!write the log file in clearing arc path
+    Y.LOG.FINAL.MSG = ''
+    Y.CNT = 1
+    Y.DCNT = DCOUNT(Y.LOG.MSG,FM)
+    LOOP
+    WHILE Y.CNT LE Y.DCNT
+        Y.LOG.FINAL.MSG = Y.LOG.MSG<Y.CNT>
+        WRITESEQ Y.LOG.FINAL.MSG APPEND TO F.OUTPUT ELSE
+            NULL
+        END
+        Y.CNT++
+    REPEAT
+    RETURN
+OPEN.WRITE.FILE:
+******************
+!!Open the clearing arc file path
+    OPENSEQ ARC.PATH , "PROCESSED." : YR.ARC.FILE TO F.OUTPUT ELSE
+        CREATE F.OUTPUT ELSE
+            NULL
+        END
+    END
+    RETURN
+END

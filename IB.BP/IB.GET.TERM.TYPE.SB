@@ -1,0 +1,45 @@
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.GET.TERM.TYPE.SB( YTERM.TYPE )
+*
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+*
+
+    YR.TERMINAL.LIST = "ATM" : FM : "POS" : FM : "INT" : FM : "ATMV" : FM : "POSV"
+
+    IF YTERM.TYPE = "GET.DEVICES" THEN
+        YTERM.TYPE = YR.TERMINAL.LIST
+        RETURN
+    END
+
+    IF LEN(YTERM.TYPE) <> 1 THEN
+        LOCATE YTERM.TYPE IN YR.TERMINAL.LIST SETTING POS ELSE
+            YTERM.TYPE = ""
+        END
+        RETURN
+    END
+
+    BEGIN CASE
+    CASE YTERM.TYPE = "A"
+        ATM.POS = "ATM"
+    CASE YTERM.TYPE = "B"
+        ATM.POS = "POS"
+    CASE YTERM.TYPE ="M"
+        ATM.POS = "INT"
+    CASE YTERM.TYPE = "C"
+        ATM.POS ="ATMV"
+    CASE YTERM.TYPE = "D"
+        ATM.POS = "POSV"
+    CASE OTHERWISE
+        ATM.POS = "POS"
+    CASE OTHERWISE
+        ATM.POS = "ERROR"
+    END CASE
+
+    YTERM.TYPE = ATM.POS
+
+    RETURN
+
+END

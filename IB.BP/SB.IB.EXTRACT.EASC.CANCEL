@@ -1,0 +1,161 @@
+    SUBROUTINE SB.IB.EXTRACT.EASC.CANCEL
+
+*********************************************
+*Develop By       : Priti Carsane
+*Developed for    : Standard Bank Mozambique
+*Development Date : 14/03/2016
+*
+*Summary Description: This authorize routine will generate a file named EASC_<date><sequence>
+* *
+*
+*Revision by:
+*Revision Comment:
+*Revision Date:
+*Version:
+**********************************************
+
+
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_F.CARD.ISSUE
+    $INSERT IB.BP I_F.SB.PARAMETRO.IB
+    $INSERT IB.BP I_F.SB.HEADER.IB
+    IF V$FUNCTION EQ 'A' THEN
+        IF PGM.VERSION EQ ',BLACKLIST.P24' OR PGM.VERSION EQ ',CANCEL.P24' THEN
+            GOSUB INIT
+            GOSUB PROCESS
+            GOSUB WRITE.FILE
+        END
+    END
+    RETURN
+
+
+*--- Abertura de ficheiros e inicializacao de variaveis
+INIT:
+    FN.BSTM.DAT = "BSTM.DAT"
+    FV.BSTM.DAT = ""
+    CALL OPF(FN.BSTM.DAT,FV.BSTM.DAT)
+
+    FN.TEMP = "TEMP"
+    FV.TEMP = ""
+    CALL OPF(FN.TEMP,FV.TEMP)
+
+    FN.SB.HEADER.IB = 'F.SB.HEADER.IB'
+    FV.SB.HEADER.IB = ''
+    CALL OPF(FN.SB.HEADER.IB,FV.SB.HEADER.IB)
+
+    FN.SB.PARAMETRO.IB = 'F.SB.PARAMETRO.IB'
+    FV.SB.PARAMETRO.IB = ''
+    CALL OPF(FN.SB.PARAMETRO.IB,FV.SB.PARAMETRO.IB)
+
+    FN.SB.HEADER.IB = "F.SB.HEADER.IB"
+    FV.SB.HEADER.IB = ""
+    CALL OPF(FN.SB.HEADER.IB,FV.SB.HEADER.IB)
+
+    SEQ.REG.EMISS = 0 ; RTH = '' ; RTD = '' ; RTT = '' ; RTP = '' ; REGISTO = ''
+    RETURN
+*--- Seleccao das companhias para extraccao dos cartoes requisitados
+
+PROCESS:
+    SEQ.REG.EMISS +=1
+    SEQ.REG.EMISS = FMT(SEQ.REG.EMISS,"6'0'R")
+    RTD.PARAM = R.NEW(CARD.IS.LOCAL.REF)<1,62>    ;* Determina o produto associado
+
+*--- Preaparacao do TIPO registo 1
+    RTD.NSITCAR = R.NEW(CARD.IS.LOCAL.REF)<1,56>
+
+    RTD.NUMCAR = ID.NEW[13,7]
+
+    RTD.COMREP = "0"
+    RTD.VISCA = "  "
+    RTD.VISA_CBR = "         "
+    RTD.DTLIMCBR = "0000000"
+    RTD.LSTUNI = "0"
+    RTD.LSTINT = "0"
+
+*--- Composicao da string do registo do tipo DETALHE do ficheiro --------*
+
+    RTD<-1> = '1':RTD.NUMCAR:RTD.NSITCAR:RTD.COMREP:RTD.VISCA:RTD.VISA_CBR:RTD.DTLIMCBR:RTD.LSTUNI:RTD.LSTINT
+
+    R.NEW(CARD.IS.LOCAL.REF)<1,67> = "YES"        ;* Determina o produto associado
+    RETURN
+
+
+
+*--- Leitura e actuializacao da tabela de sequencia do ficheiro ECBI
+WRITE.FILE:
+    IF RTD THEN
+        R.SEQ = ''
+        READ R.SEQ FROM FV.SB.HEADER.IB,"EASC" ELSE R.SEQ = ''
+        YIDFICHANT = R.SEQ<IBHDR.IDFICHANT>
+        YIDFICH = R.SEQ<IBHDR.IDFICH>
+
+        YDATAANT = YIDFICHANT[1,8]
+        YDATA = YIDFICH[1,8]
+
+        YSEQANT = YIDFICH[9,3]
+        YSEQANT = FMT(YSEQANT,"3'0'R")
+
+        IF YDATA NE TODAY THEN
+            YSEQACT = "001"
+        END ELSE
+            YSEQACT = YIDFICH[9,3] + 1
+            YSEQACT = FMT(YSEQACT,"3'0'R")
+        END
+
+        YIDFICHANT = R.SEQ<IBHDR.IDFICH>
+        YIDFICH = TODAY:YSEQACT
+
+        R.SEQ<IBHDR.IDFICHANT> = YIDFICHANT
+        R.SEQ<IBHDR.IDFICH> = YIDFICH
+
+        WRITE R.SEQ TO FV.SB.HEADER.IB,"EASC"
+
+
+*--- Constituicao registo do tipo HEADER do ficheiro ---------*
+
+        RTH.TIPREG = "0"
+        RTH.APLIC = "M"
+        RTH.FICH = "EASC"
+        RTH.VERFICH ="03"
+        RTH.CODBAN = "0003"
+        RTH.CPD = "1"
+        RTH.IDFICH = YIDFICH
+        RTH.IDFICHANT = YIDFICHANT
+        RTH.DATAVALOR = "00000000"
+        RTH.CODMOEDA =  "943"
+
+*--- Composicao da string do registo tipo HEADER do ficheiro
+
+        RTH = RTH.TIPREG:RTH.APLIC:RTH.FICH:RTH.VERFICH:RTH.CODBAN:RTH.CPD
+        RTH := RTH.IDFICH:RTH.IDFICHANT:RTH.DATAVALOR:RTH.CODMOEDA
+
+
+*--- Constituicao do registo tipo TRAILER do ficheiro
+
+        RTT.TIPREG = "9"
+        SEQ.REG.EMISS = SEQ.REG.EMISS
+        SEQ.REG.EMISS = FMT(SEQ.REG.EMISS,"8'0'R")
+        RTT.TOTREG = SEQ.REG.EMISS
+        RTT.TOTDEB = "0000000000000000"
+        RTT.TOTCRED = "0000000000000000"
+
+*--- Composicao da string do resgisto tipo TRAILER do ficheiro
+
+        RTT = RTT.TIPREG:RTT.TOTREG:RTT.TOTDEB:RTT.TOTCRED
+
+
+*--- Cmposicao final do ficheiro EASC e escrita
+        REGISTO = RTH:@FM:RTD:@FM:RTT
+
+        WRITE REGISTO TO FV.BSTM.DAT,'EASC':YIDFICH
+        WRITE REGISTO TO FV.TEMP,'EASC':YIDFICH
+*--- Limpeza de variaveis
+
+
+    END
+    SEQ.REG.EMISS = 0 ; RTH = '' ; RTD = '' ; RTT = '' ; RTP = '' ; REGISTO = ''
+    RETURN
+
+
+END

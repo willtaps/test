@@ -1,0 +1,66 @@
+*-----------------------------------------------------------------------------
+* <Rating>-10</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE IB.OPE.TYPES.SB.FIELDS
+*-----------------------------------------------------------------------------
+*<doc>
+* Template for field definitions routine YOURAPPLICATION.FIELDS
+*
+* @author willard.matsaudza@gmail.com
+* @stereotype fields template
+* @uses Table
+* @public Table Creation
+* @package infra.eb
+* </doc>
+*-----------------------------------------------------------------------------
+* Modification History :
+*
+* 19/10/07 - EN_10003543
+*            New Template changes
+*
+* 14/11/07 - BG_100015736
+*            Exclude routines that are not released
+*-----------------------------------------------------------------------------
+*** <region name= Header>
+*** <desc>Inserts and control logic</desc>
+    $INCLUDE I_COMMON
+    $INCLUDE I_EQUATE
+    $INCLUDE I_DataTypes
+*** </region>
+*-----------------------------------------------------------------------------
+    CALL Table.defineId("IB.OPE.TYP.ID", T24_String)      ;* Define Table id
+*-----------------------------------------------------------------------------
+    CALL Table.addField("NAME", T24_String, "", "")
+    CALL Table.addField("CALL.TYPE", T24_String, "", "")
+    CALL Field.setCheckFile("IB.EVENT.TYPES.SB")
+    CALL Table.addField("START.VARIABLE", T24_String, "", "")
+    CALL Field.setCheckFile("IB.MESSAGE.TAG.SB")
+    CALL Table.addField("XX<MSG.TYPE", T24_String, "", "")
+    CALL Field.setCheckFile("IB.CODE.MESSAGE.SB")
+    CALL Table.addField("XX-FT.TXN.TYPE", T24_String, "", "")
+    CALL Field.setCheckFile("FT.TXN.TYPE.CONDITION")
+    CALL Table.addFieldDefinition("XX>VERSION.NAME", 60, "ANY", "")
+    CALL Field.setCheckFile("VERSION")
+    CALL Table.addField("NRIDRESP", T24_String, "", "")
+    CALL Table.addField("APPLICATION", T24_String, "", "")
+    CALL Field.setCheckFile("PGM.FILE")
+    CALL Table.addOptionsField("RESP.VAR.DATA","YES_NO", "", "")
+    CALL Table.addOptionsField("EVENT.PROCESS","BAL_STMT_OFS_NIB_PIN_IBAN", "", "")
+    CALL Table.addOptionsField("CHECK.BALANCE","YES_NO", "", "")
+    CALL Table.addReservedField('RESERVED.6')
+    CALL Table.addReservedField('RESERVED.5')
+    CALL Table.addReservedField('RESERVED.4')
+    CALL Table.addReservedField('RESERVED.3')
+    CALL Table.addReservedField('RESERVED.2')
+    CALL Table.addReservedField('RESERVED.1')
+
+*   CALL Field.setCheckFile(fileName)        ;* Use DEFAULT.ENRICH from SS or just field 1
+*    CALL Table.addFieldDefinition(fieldName, fieldLength, fieldType, neighbour) ;* Add a new field
+*    CALL Table.addFieldWithEbLookup(fieldName,virtualTableName,neighbour) ;* Specify Lookup values
+*    CALL Field.setDefault(defaultValue) ;* Assign default value
+*-----------------------------------------------------------------------------
+    CALL Table.setAuditPosition         ;* Poputale audit information
+*-----------------------------------------------------------------------------
+    RETURN
+*-----------------------------------------------------------------------------
+END
