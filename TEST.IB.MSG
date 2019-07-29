@@ -3,7 +3,7 @@
     $INCLUDE I_COMMON
     $INCLUDE I_EQUATE
 
-    PHNO = 1
+    PHNO = @TRUE
 
     TTYPE = "ANSI-COLOUR"
 
